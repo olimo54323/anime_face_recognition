@@ -49,6 +49,23 @@
             background-color: #4CAF50;
             height: 100%;
         }
+        .characters-info {
+            margin-top: 30px;
+            padding: 15px;
+            background-color: #f8f8f8;
+            border-radius: 5px;
+        }
+        .characters-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .character-item {
+            background-color: #e0e0e0;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.9em;
+        }
     </style>
 </head>
 <body>
@@ -65,6 +82,17 @@
         <h2>Recognition Results:</h2>
         <div id="results"></div>
     </div>
+    
+    {% if characters %}
+    <div class="characters-info">
+        <h3>Recognized Characters ({{ characters|length }})</h3>
+        <div class="characters-list">
+            {% for character in characters %}
+            <div class="character-item">{{ character }}</div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
     
     <script>
         document.getElementById('image-upload').addEventListener('change', function(event) {

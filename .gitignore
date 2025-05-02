@@ -60,3 +60,6 @@ instance/
 
 # Docker
 .dockerignore
+
+#Kaggle API token
+kaggle.json

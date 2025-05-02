@@ -17,6 +17,11 @@ COPY requirements.txt .
 # Install dependencies with --ignore-installed flag to avoid errors with pre-installed packages
 RUN pip install --no-cache-dir --ignore-installed -r requirements.txt
 
+# Set up Kaggle API
+RUN mkdir -p /root/.kaggle
+COPY kaggle.json /root/.kaggle/
+RUN chmod 600 /root/.kaggle/kaggle.json
+
 # Copy the entire project
 COPY . .
 

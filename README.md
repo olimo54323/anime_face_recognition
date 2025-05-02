@@ -24,12 +24,19 @@ Project uses machine learning and computer vision techniques to recognize anime 
 - Python 3.8+
 - Docker (optional)
 
+### Kaggle API configuration
+1. Sign up for [Kaggle](https://www.kaggle.com) (if you don't have an account yet)
+2. Go to your account settings (click on your profile picture)
+3. Scroll to the "API" section and click "Create New API Token"
+4. Download the kaggle.json file
+5. Place this file in the project root (it will be copied to the container)
+
 ### Local installation
 
 ```bash
 # Cloning the repository
-git clone https://github.com/username/anime-face-recognition.git
-cd anime-face-recognition
+git clone https://github.com/olimo54323/anime_face_recognition.git
+cd anime-face-recognition 
 
 # Installing dependencies
 pip install -r requirements.txt
@@ -38,13 +45,17 @@ pip install -r requirements.txt
 python app/app.py
 ```
 
-### Docker instalation
+### Docker instalation (recommended)
 
 ```bash
-# Budowanie obrazu Docker
+# Cloning the repository
+git clone https://github.com/olimo54323/anime_face_recognition.git
+cd anime-face-recognition 
+
+# Building Docker image
 docker build -t anime-face-recognition .
 
-# Uruchomienie kontenera
+# Running the container
 docker run -p 5000:5000 anime-face-recognition
 ```
 
