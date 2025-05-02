@@ -4,7 +4,7 @@ FROM tensorflow/tensorflow:latest
 # Set working directory
 WORKDIR /app
 
-# Install required packages
+# Install required packages for OpenCV
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     libgl1-mesa-glx \
@@ -14,8 +14,8 @@ RUN apt-get update && \
 # Copy requirements file
 COPY requirements.txt .
 
-# Install dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Install dependencies with --ignore-installed flag to avoid errors with pre-installed packages
+RUN pip install --no-cache-dir --ignore-installed -r requirements.txt
 
 # Copy the entire project
 COPY . .
@@ -30,5 +30,5 @@ EXPOSE 5000
 ENV FLASK_APP=app/app.py
 ENV FLASK_ENV=production
 
-# Run the application with gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "app.app:app"]
+# Run the application
+CMD ["python", "app/app.py"]
