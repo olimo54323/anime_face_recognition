@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Anime Face Recognition</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .upload-container {
+            border: 2px dashed #ccc;
+            padding: 20px;
+            text-align: center;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        #preview {
+            max-width: 300px;
+            max-height: 300px;
+            margin: 15px auto;
+            display: none;
+        }
+        #result-container {
+            margin-top: 20px;
+            display: none;
+        }
+        .result-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding: 10px;
+            background-color: #f5f5f5;
+            border-radius: 5px;
+        }
+        .progress-bar {
+            background-color: #e0e0e0;
+            height: 20px;
+            width: 70%;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .progress {
+            background-color: #4CAF50;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <h1>Anime Face Recognition</h1>
+    
+    <div class="upload-container">
+        <h2>Upload an anime character image</h2>
+        <input type="file" id="image-upload" accept="image/*">
+        <p>Supported formats: .jpg, .jpeg, .png</p>
+        <img id="preview" src="#" alt="Preview">
+    </div>
+    
+    <div id="result-container">
+        <h2>Recognition Results:</h2>
+        <div id="results"></div>
+    </div>
+    
+    <script>
+        document.getElementById('image-upload').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                // Display preview
+                const preview = document.getElementById('preview');
+                preview.style.display = 'block';
+                preview.src = URL.createObjectURL(file);
+                
+                // Upload and get predictions
+                uploadImage(file);
+            }
+        });
+        
+        function uploadImage(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            fetch('/predict', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    displayResults(data.top_predictions);
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred during prediction.');
+            });
+        }
+        
+        function displayResults(predictions) {
+            const resultContainer = document.getElementById('result-container');
+            const resultsDiv = document.getElementById('results');
+            
+            // Clear previous results
+            resultsDiv.innerHTML = '';
+            
+            // Display each prediction
+            predictions.forEach(pred => {
+                const resultItem = document.createElement('div');
+                resultItem.className = 'result-item';
+                
+                const characterName = document.createElement('div');
+                characterName.textContent = pred.character;
+                
+                const probabilityContainer = document.createElement('div');
+                probabilityContainer.style.display = 'flex';
+                probabilityContainer.style.alignItems = 'center';
+                probabilityContainer.style.width = '70%';
+                
+                const progressBar = document.createElement('div');
+                progressBar.className = 'progress-bar';
+                
+                const progress = document.createElement('div');
+                progress.className = 'progress';
+                progress.style.width = pred.percentage;
+                
+                const percentage = document.createElement('span');
+                percentage.textContent = pred.percentage;
+                percentage.style.marginLeft = '10px';
+                
+                progressBar.appendChild(progress);
+                probabilityContainer.appendChild(progressBar);
+                probabilityContainer.appendChild(percentage);
+                
+                resultItem.appendChild(characterName);
+                resultItem.appendChild(probabilityContainer);
+                
+                resultsDiv.appendChild(resultItem);
+            });
+            
+            // Show results container
+            resultContainer.style.display = 'block';
+        }
+    </script>
+</body>
+</html>
