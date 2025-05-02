@@ -1,179 +1,248 @@
 <!DOCTYPE html>
-<html>
+<html lang="pl">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Anime Face Recognition</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
+            font-family: 'Arial', sans-serif;
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+        .main-container {
+            max-width: 900px;
             margin: 0 auto;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
             padding: 20px;
         }
-        h1 {
-            color: #333;
+        .header {
             text-align: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
         }
-        .upload-container {
-            border: 2px dashed #ccc;
+        .upload-section {
+            background-color: #f9f9f9;
+            border-radius: 8px;
             padding: 20px;
+            margin-bottom: 20px;
+        }
+        .preview-container {
             text-align: center;
             margin: 20px 0;
-            border-radius: 5px;
-        }
-        #preview {
-            max-width: 300px;
-            max-height: 300px;
-            margin: 15px auto;
-            display: none;
-        }
-        #result-container {
-            margin-top: 20px;
-            display: none;
-        }
-        .result-item {
+            min-height: 200px;
             display: flex;
-            justify-content: space-between;
-            margin-bottom: 10px;
+            align-items: center;
+            justify-content: center;
+            border: 2px dashed #ddd;
+            border-radius: 8px;
             padding: 10px;
-            background-color: #f5f5f5;
+        }
+        .preview-container img {
+            max-width: 100%;
+            max-height: 400px;
             border-radius: 5px;
         }
-        .progress-bar {
-            background-color: #e0e0e0;
-            height: 20px;
-            width: 70%;
-            border-radius: 10px;
-            overflow: hidden;
+        .result-section {
+            display: none;
+            margin: 20px 0;
+            padding: 20px;
+            background-color: #f0f8ff;
+            border-radius: 8px;
+        }
+        .character-card {
+            display: flex;
+            margin-bottom: 15px;
+            background-color: white;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+            align-items: center;
+        }
+        .character-percentage {
+            font-size: 24px;
+            font-weight: bold;
+            margin-right: 20px;
+            color: #4a4a4a;
+        }
+        .character-info {
+            flex-grow: 1;
         }
         .progress {
-            background-color: #4CAF50;
-            height: 100%;
+            height: 10px;
+            margin-top: 8px;
         }
-        .characters-info {
-            margin-top: 30px;
-            padding: 15px;
-            background-color: #f8f8f8;
-            border-radius: 5px;
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
         }
-        .characters-list {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
+        .spinner-border {
+            width: 3rem;
+            height: 3rem;
         }
-        .character-item {
-            background-color: #e0e0e0;
-            padding: 5px 10px;
-            border-radius: 15px;
-            font-size: 0.9em;
+        .error-message {
+            color: #dc3545;
+            margin-top: 10px;
+            display: none;
         }
     </style>
 </head>
 <body>
-    <h1>Anime Face Recognition</h1>
-    
-    <div class="upload-container">
-        <h2>Upload an anime character image</h2>
-        <input type="file" id="image-upload" accept="image/*">
-        <p>Supported formats: .jpg, .jpeg, .png</p>
-        <img id="preview" src="#" alt="Preview">
-    </div>
-    
-    <div id="result-container">
-        <h2>Recognition Results:</h2>
-        <div id="results"></div>
-    </div>
-    
-    {% if characters %}
-    <div class="characters-info">
-        <h3>Recognized Characters ({{ characters|length }})</h3>
-        <div class="characters-list">
-            {% for character in characters %}
-            <div class="character-item">{{ character }}</div>
-            {% endfor %}
+    <div class="main-container">
+        <div class="header">
+            <h1>Anime Face Recognition</h1>
+            <p class="text-muted">Rozpoznawanie postaci z anime na podstawie twarzy</p>
+        </div>
+
+        <div class="upload-section">
+            <h4>Wgraj zdjęcie z twarzą postaci anime</h4>
+            <form id="upload-form" enctype="multipart/form-data">
+                <div class="mb-3">
+                    <input class="form-control" type="file" id="image-upload" accept=".jpg,.jpeg,.png">
+                </div>
+                <button type="submit" class="btn btn-primary">Rozpoznaj postać</button>
+            </form>
+            <div class="error-message" id="error-message"></div>
+        </div>
+
+        <div class="preview-container" id="preview-container">
+            <p class="text-muted">Tu pojawi się podgląd zdjęcia...</p>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Analizowanie...</span>
+            </div>
+            <p class="mt-2">Analizowanie obrazu...</p>
+        </div>
+
+        <div class="result-section" id="result-section">
+            <h4>Wyniki rozpoznawania</h4>
+            <div id="results-container">
+                <!-- Wyniki będą tutaj dynamicznie dodawane -->
+            </div>
         </div>
     </div>
-    {% endif %}
-    
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        document.getElementById('image-upload').addEventListener('change', function(event) {
-            const file = event.target.files[0];
-            if (file) {
-                // Display preview
-                const preview = document.getElementById('preview');
-                preview.style.display = 'block';
-                preview.src = URL.createObjectURL(file);
-                
-                // Upload and get predictions
-                uploadImage(file);
-            }
-        });
-        
-        function uploadImage(file) {
-            const formData = new FormData();
-            formData.append('file', file);
-            
-            fetch('/predict', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    displayResults(data.top_predictions);
-                } else {
-                    alert('Error: ' + data.error);
+        document.addEventListener('DOMContentLoaded', function() {
+            const uploadForm = document.getElementById('upload-form');
+            const imageUpload = document.getElementById('image-upload');
+            const previewContainer = document.getElementById('preview-container');
+            const resultSection = document.getElementById('result-section');
+            const resultsContainer = document.getElementById('results-container');
+            const loadingElement = document.getElementById('loading');
+            const errorMessage = document.getElementById('error-message');
+
+            // Preview image when selected
+            imageUpload.addEventListener('change', function() {
+                const file = this.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        previewContainer.innerHTML = `<img src="${e.target.result}" alt="Preview">`;
+                    };
+                    reader.readAsDataURL(file);
+                    
+                    // Reset results and error
+                    resultSection.style.display = 'none';
+                    errorMessage.style.display = 'none';
                 }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('An error occurred during prediction.');
             });
-        }
-        
-        function displayResults(predictions) {
-            const resultContainer = document.getElementById('result-container');
-            const resultsDiv = document.getElementById('results');
-            
-            // Clear previous results
-            resultsDiv.innerHTML = '';
-            
-            // Display each prediction
-            predictions.forEach(pred => {
-                const resultItem = document.createElement('div');
-                resultItem.className = 'result-item';
+
+            // Handle form submission
+            uploadForm.addEventListener('submit', function(e) {
+                e.preventDefault();
                 
-                const characterName = document.createElement('div');
-                characterName.textContent = pred.character;
+                const file = imageUpload.files[0];
+                if (!file) {
+                    errorMessage.textContent = 'Proszę wybrać plik obrazu';
+                    errorMessage.style.display = 'block';
+                    return;
+                }
                 
-                const probabilityContainer = document.createElement('div');
-                probabilityContainer.style.display = 'flex';
-                probabilityContainer.style.alignItems = 'center';
-                probabilityContainer.style.width = '70%';
+                // Show loading indicator
+                loadingElement.style.display = 'block';
                 
-                const progressBar = document.createElement('div');
-                progressBar.className = 'progress-bar';
+                // Hide previous results and errors
+                resultSection.style.display = 'none';
+                errorMessage.style.display = 'none';
                 
-                const progress = document.createElement('div');
-                progress.className = 'progress';
-                progress.style.width = pred.percentage;
+                // Create form data
+                const formData = new FormData();
+                formData.append('file', file);
                 
-                const percentage = document.createElement('span');
-                percentage.textContent = pred.percentage;
-                percentage.style.marginLeft = '10px';
-                
-                progressBar.appendChild(progress);
-                probabilityContainer.appendChild(progressBar);
-                probabilityContainer.appendChild(percentage);
-                
-                resultItem.appendChild(characterName);
-                resultItem.appendChild(probabilityContainer);
-                
-                resultsDiv.appendChild(resultItem);
+                // Send request to server
+                fetch('/predict', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    // Hide loading indicator
+                    loadingElement.style.display = 'none';
+                    
+                    if (data.error) {
+                        // Show error
+                        errorMessage.textContent = data.error;
+                        errorMessage.style.display = 'block';
+                    } else if (data.success) {
+                        // Clear previous results
+                        resultsContainer.innerHTML = '';
+                        
+                        // Process results
+                        data.top_predictions.forEach(prediction => {
+                            // Calculate progress bar class based on probability
+                            let progressClass = 'bg-danger';
+                            if (prediction.probability > 0.7) {
+                                progressClass = 'bg-success';
+                            } else if (prediction.probability > 0.4) {
+                                progressClass = 'bg-warning';
+                            }
+                            
+                            // Create character card HTML
+                            const characterCard = `
+                                <div class="character-card">
+                                    <div class="character-percentage">${prediction.percentage}</div>
+                                    <div class="character-info">
+                                        <h5>${prediction.character}</h5>
+                                        <div class="progress">
+                                            <div class="progress-bar ${progressClass}" role="progressbar" 
+                                                style="width: ${prediction.probability * 100}%" 
+                                                aria-valuenow="${prediction.probability * 100}" 
+                                                aria-valuemin="0" aria-valuemax="100"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                            
+                            // Add to results container
+                            resultsContainer.innerHTML += characterCard;
+                        });
+                        
+                        // Show results section
+                        resultSection.style.display = 'block';
+                    }
+                })
+                .catch(error => {
+                    // Hide loading indicator
+                    loadingElement.style.display = 'none';
+                    
+                    // Show error
+                    errorMessage.textContent = 'Wystąpił błąd podczas komunikacji z serwerem.';
+                    errorMessage.style.display = 'block';
+                    console.error('Error:', error);
+                });
             });
-            
-            // Show results container
-            resultContainer.style.display = 'block';
-        }
+        });
     </script>
 </body>
 </html>
