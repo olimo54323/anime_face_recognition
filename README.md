@@ -22,7 +22,7 @@ Project uses machine learning and computer vision techniques to recognize anime 
 
 ### Requirements
 - Python 3.8+
-- Docker (optional)
+- Docker
 
 ### Kaggle API configuration
 1. Sign up for [Kaggle](https://www.kaggle.com) (if you don't have an account yet)
@@ -31,71 +31,39 @@ Project uses machine learning and computer vision techniques to recognize anime 
 4. Download the kaggle.json file
 5. Place this file in the project root (it will be copied to the container)
 
-### Local installation
+### instalation
 
 ```bash
 # Cloning the repository
 git clone https://github.com/olimo54323/anime_face_recognition.git
-cd anime-face-recognition 
-
-# Installing dependencies
-pip install -r requirements.txt
-
-# Running the application
-python app/app.py
-```
-
-### Docker instalation (recommended)
-
-```bash
-# Cloning the repository
-git clone https://github.com/olimo54323/anime_face_recognition.git
-cd anime-face-recognition 
-
-# Building Docker image
-docker build -t anime-face-recognition .
-
-# Running the container
-docker run -p 5000:5000 anime-face-recognition
-```
-
-## Dataset and model
-
-### Training data model (via docker WIP)
-- build app (docker method)
-```bash
 cd anime-face-recognition 
 
 # Building Docker image
 docker build -t anime-face-recognition .
 
 # open docker in interactive mode
-docker run -it --rm anime-face-recognition bash
+docker run -it -p 5000:5000 --rm anime-face-recognition bash
 ```
 - run command for dataset download:
 ```bash
 python scripts/download_dataset.py
 ```
-there will be a path for downloaded dataset (example:)
-![example1](img/image.png)
-that path will be nessecery for next step
 - run command for model training:
 ```bash
-python scripts/train_model.py --dataset_path "path/for/dataset" --min_images 5 --verbose
+python scripts/train_model.py
 ```
-- parameters:
-  
---dataset_path - sets localization of dataset
 
---min_images - sets minimal value of pictures required (default: 15)
-
---verbose - turns on specified diagnostic messages
 - run command for model evaluate:
 ```bash
 python scripts/evaluate_model.py
 ```
-
-**WORK IN PROGRESS: every generated file stays in container memory, and will be destroyed after container close**
+- run the flask app:
+```bash
+export FLASK_APP=app/app.py
+export FLASK_DEBUG=1
+export PYTHONUNBUFFERED=1
+flask run --host=0.0.0.0 --port=5000
+```
 
 ### First results (based on smaller quantity of pictures)
 1. class performance:
@@ -122,6 +90,13 @@ SPEED METRICS:
   Average inference time: 4.65 ms per image
   Images per second: 215.04
 ```
+
+model at this point is not correct (example session):
+
+good:
+![atago](img/atago.png)
+bad:
+![enterprise](img/enterprise.png)
 
 ## Authors
 - Grzegorz Urbański

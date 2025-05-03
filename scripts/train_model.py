@@ -29,19 +29,25 @@ np.random.seed(42)
 tf.random.set_seed(42)
 
 # Define default paths
-DEFAULT_DATASET_PATH = 'dataset'
+DEFAULT_KAGGLE_PATH = '/root/.cache/kagglehub/datasets/thedevastator/anime-face-dataset-by-character-name/versions/1'
 DEFAULT_MODEL_PATH = 'models/anime_face_recognition_model.h5'
 DEFAULT_CLASS_NAMES_PATH = 'models/class_names.pkl'
 
 def parse_arguments():
     """Parse command line arguments"""
+    
+    if os.path.exists(DEFAULT_KAGGLE_PATH):
+        default_dataset_path = DEFAULT_KAGGLE_PATH
+    else:
+        default_dataset_path = 'dataset'
+    
     parser = argparse.ArgumentParser(description='Train anime face recognition model')
     
     parser.add_argument(
         '--dataset_path', 
         type=str, 
-        default=DEFAULT_DATASET_PATH,
-        help=f'Path to the dataset (default: {DEFAULT_DATASET_PATH})'
+        default=default_dataset_path,
+        help=f'Path to the dataset (default: {default_dataset_path})'
     )
     
     parser.add_argument(
