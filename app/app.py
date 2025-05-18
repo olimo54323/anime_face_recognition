@@ -8,6 +8,9 @@ import os
 import logging
 from werkzeug.utils import secure_filename
 
+# Importuj moduły specyficzne dla projektu
+from scripts.preprocessing import preprocess_image
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO, 
@@ -22,6 +25,11 @@ app = Flask(__name__)
 UPLOAD_FOLDER = 'app/static/uploads'
 MODEL_PATH = 'models/anime_face_recognition_model.h5'
 CLASS_NAMES_PATH = 'models/class_names.pkl'
+
+# Konfiguracja modelu (domyślnie mobilenetv2)
+MODEL_TYPE = os.environ.get('MODEL_TYPE', 'mobilenetv2')
+MODEL_PATH = MODEL_PATH.replace('.h5', f'_{MODEL_TYPE}.h5')
+CLASS_NAMES_PATH = CLASS_NAMES_PATH.replace('.pkl', f'_{MODEL_TYPE}.pkl')
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
 
@@ -48,39 +56,13 @@ def load_model():
         class_names = pickle.load(f)
     
     logger.info(f"Model and class names loaded successfully. Model recognizes {len(class_names)} characters.")
+    logger.info(f"Model type: {MODEL_TYPE}")
     
     return model, class_names
 
 def allowed_file(filename):
     """Check if the file has an allowed extension"""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-def preprocess_image(image_path, target_size=(128, 128)):
-    """
-    Preprocess an image for model input.
-    
-    Args:
-        image_path: Path to the image
-        target_size: Size to resize the image to (width, height)
-        
-    Returns:
-        Preprocessed image as numpy array
-    """
-    # Load image
-    img = cv2.imread(image_path)
-    if img is None:
-        raise ValueError(f"Could not read image: {image_path}")
-    
-    # Convert BGR to RGB (OpenCV loads as BGR)
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    
-    # Resize to target size
-    img = cv2.resize(img, target_size)
-    
-    # Normalize pixel values to range [0, 1]
-    img = img / 255.0
-    
-    return img
 
 # Load model at startup
 try:
@@ -94,7 +76,8 @@ except Exception as e:
 @app.route('/')
 def home():
     """Render home page"""
-    return render_template('index.html', characters=class_names)
+    # Przekaż typ modelu do szablonu
+    return render_template('index.html', characters=class_names, model_type=MODEL_TYPE)
 
 @app.route('/predict', methods=['POST'])
 def predict():
@@ -117,8 +100,15 @@ def predict():
         file.save(file_path)
         
         try:
+            # Determine image size based on model type
+            target_size = (240, 240) if MODEL_TYPE == 'efficientnetb1' else (224, 224)
+            
             # Preprocess image
-            processed_img = preprocess_image(file_path)
+            processed_img = preprocess_image(
+                file_path, 
+                model_type=MODEL_TYPE, 
+                target_size=target_size
+            )
             processed_img = np.expand_dims(processed_img, axis=0)
             
             # Make prediction
@@ -137,6 +127,7 @@ def predict():
             
             return jsonify({
                 'success': True,
+                'model_type': MODEL_TYPE,
                 'top_predictions': top_predictions
             })
         
@@ -148,5 +139,70 @@ def predict():
     
     return jsonify({'error': 'Invalid file format'})
 
+@app.route('/models', methods=['GET'])
+def list_models():
+    """List all available models"""
+    model_dir = os.path.dirname(MODEL_PATH)
+    
+    available_models = []
+    
+    if os.path.exists(model_dir):
+        for file in os.listdir(model_dir):
+            if file.endswith('.h5'):
+                # Extract model type from filename
+                model_name = file.replace('anime_face_recognition_model_', '').replace('.h5', '')
+                available_models.append(model_name)
+    
+    return jsonify({
+        'success': True,
+        'current_model': MODEL_TYPE,
+        'available_models': available_models
+    })
+
+@app.route('/model/<model_type>', methods=['POST'])
+def switch_model(model_type):
+    """Switch to a different model"""
+    global model, class_names, MODEL_TYPE
+    
+    # Validate model type
+    if model_type not in ['mobilenetv2', 'efficientnetb0', 'efficientnetb1', 'resnet50']:
+        return jsonify({'error': f'Invalid model type: {model_type}'})
+    
+    # Update paths
+    new_model_path = MODEL_PATH.replace(MODEL_TYPE, model_type)
+    new_class_names_path = CLASS_NAMES_PATH.replace(MODEL_TYPE, model_type)
+    
+    # Check if files exist
+    if not os.path.exists(new_model_path):
+        return jsonify({'error': f'Model file not found: {new_model_path}'})
+    
+    if not os.path.exists(new_class_names_path):
+        return jsonify({'error': f'Class names file not found: {new_class_names_path}'})
+    
+    try:
+        # Load new model
+        new_model = tf.keras.models.load_model(new_model_path)
+        
+        # Load new class names
+        with open(new_class_names_path, 'rb') as f:
+            new_class_names = pickle.load(f)
+        
+        # Update global variables
+        model = new_model
+        class_names = new_class_names
+        MODEL_TYPE = model_type
+        
+        logger.info(f"Switched to model: {MODEL_TYPE}")
+        
+        return jsonify({
+            'success': True,
+            'model_type': MODEL_TYPE,
+            'num_classes': len(class_names)
+        })
+    
+    except Exception as e:
+        logger.error(f"Error switching model: {e}")
+        return jsonify({'error': f"Error switching model: {str(e)}"})
+
 if __name__ == '__main__':
-    app.run(debug=True, host='127.0.0.1', port=5000)
+    app.run(debug=True, host='0.0.0.0', port=5000)

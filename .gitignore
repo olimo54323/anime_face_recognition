@@ -41,6 +41,9 @@ data/*.zip
 data/*.jpg
 data/*.png
 
+# dataset files
+dataset/dataset/
+
 # Uploaded files
 app/static/uploads/*
 !app/static/uploads/.gitkeep
