@@ -1,16 +1,52 @@
+# Setup paths first
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 # Import required libraries
 from flask import Flask, request, render_template, jsonify
-import tensorflow as tf
 import numpy as np
 import cv2
 import pickle
-import os
 import logging
 from werkzeug.utils import secure_filename
 import glob
 
+# Force TensorFlow import with specific settings
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # Reduce TF logging
+os.environ['KERAS_BACKEND'] = 'tensorflow'
+
 # Import project-specific modules
-from scripts.preprocessing import preprocess_image, validate_image
+try:
+    from scripts.preprocessing import preprocess_image, validate_image
+except ImportError:
+    # Fallback import path
+    sys.path.append('/app')
+    from scripts.preprocessing import preprocess_image, validate_image
+
+# Lazy import for TensorFlow - only when needed
+tf = None
+
+def get_tensorflow():
+    """Lazy import TensorFlow only when needed with error handling"""
+    global tf
+    if tf is None:
+        try:
+            # Set TensorFlow to use only CPU and reduce warnings
+            os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+            
+            import tensorflow as tf_module
+            
+            # Configure TensorFlow
+            tf_module.config.threading.set_intra_op_parallelism_threads(1)
+            tf_module.config.threading.set_inter_op_parallelism_threads(1)
+            
+            tf = tf_module
+            logger.info(f"TensorFlow loaded successfully, version: {tf.version.VERSION}")
+        except Exception as e:
+            logger.error(f"Failed to import TensorFlow: {e}")
+            raise ImportError(f"Could not import TensorFlow: {e}")
+    return tf
 
 # Configure logging
 logging.basicConfig(
@@ -48,9 +84,20 @@ def get_available_models():
             # Extract model name without extension
             model_name = os.path.splitext(os.path.basename(model_file))[0]
             
-            # Check if corresponding pickle file exists
-            pickle_file = os.path.join(MODELS_FOLDER, f"{model_name}.pkl")
-            if os.path.exists(pickle_file):
+            # Check for different pickle file naming patterns
+            pickle_patterns = [
+                f"{model_name}.pkl",                    # exact match
+                f"{model_name}_class_names.pkl",        # with _class_names suffix
+            ]
+            
+            pickle_found = False
+            for pattern in pickle_patterns:
+                pickle_file = os.path.join(MODELS_FOLDER, pattern)
+                if os.path.exists(pickle_file):
+                    pickle_found = True
+                    break
+            
+            if pickle_found:
                 available_models.append(model_name)
     
     return list(set(available_models))  # Remove duplicates
@@ -72,13 +119,49 @@ def load_model(model_name):
     if model_path is None:
         raise FileNotFoundError(f"Model file not found for: {model_name}")
     
-    pickle_path = os.path.join(MODELS_FOLDER, f"{model_name}.pkl")
+    # Try different pickle file naming patterns
+    pickle_patterns = [
+        f"{model_name}.pkl",                    # exact match
+        f"{model_name}_class_names.pkl",        # with _class_names suffix
+    ]
     
-    if not os.path.exists(pickle_path):
-        raise FileNotFoundError(f"Class names file not found: {pickle_path}")
+    pickle_path = None
+    for pattern in pickle_patterns:
+        potential_path = os.path.join(MODELS_FOLDER, pattern)
+        if os.path.exists(potential_path):
+            pickle_path = potential_path
+            break
     
-    # Load the model
-    current_model = tf.keras.models.load_model(model_path)
+    if pickle_path is None:
+        raise FileNotFoundError(f"Class names file not found. Tried: {pickle_patterns}")
+    
+    # Load TensorFlow and the model with different strategies
+    tf = get_tensorflow()
+    
+    logger.info(f"potential path: {potential_path}")
+    logger.info(f"potential path: {model_path}")
+    try:
+        # Strategy 1: Try direct loading
+        current_model = tf.keras.models.load_model(model_path)
+        logger.info(f"Model loaded with keras.models.load_model")
+    except Exception as e1:
+        logger.warning(f"Direct loading failed: {e1}")
+        try:
+            # Strategy 2: Load with compile=False
+            current_model = tf.keras.models.load_model(model_path, compile=False)
+            logger.info(f"Model loaded with compile=False")
+        except Exception as e2:
+            logger.warning(f"Loading with compile=False failed: {e2}")
+            try:
+                # Strategy 3: Load as SavedModel if it's a directory
+                if os.path.isdir(model_path):
+                    current_model = tf.saved_model.load(model_path)
+                    logger.info(f"Model loaded as SavedModel")
+                else:
+                    raise Exception("All loading strategies failed")
+            except Exception as e3:
+                logger.error(f"All model loading strategies failed: {e1}, {e2}, {e3}")
+                raise Exception(f"Could not load model: {model_path}")
     
     # Load class names
     with open(pickle_path, 'rb') as f:
@@ -86,7 +169,9 @@ def load_model(model_name):
     
     current_model_name = model_name
     
-    logger.info(f"Model loaded successfully. Recognizes {len(current_class_names)} characters.")
+    logger.info(f"Model loaded successfully from: {model_path}")
+    logger.info(f"Class names loaded from: {pickle_path}")
+    logger.info(f"Recognizes {len(current_class_names)} characters.")
     logger.info(f"Characters: {current_class_names}")
     
     return current_model, current_class_names
@@ -95,17 +180,22 @@ def allowed_file(filename):
     """Check if the file has an allowed extension"""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-# Load default model at startup
-try:
-    available_models = get_available_models()
-    if available_models:
-        default_model = available_models[0]
-        load_model(default_model)
-        logger.info(f"Default model '{default_model}' loaded successfully")
-    else:
-        logger.warning("No models found in models folder")
-except Exception as e:
-    logger.error(f"Error loading default model: {e}")
+# Disable auto-loading of models at startup to avoid import errors
+def safe_load_default_model():
+    """Safely try to load default model without crashing the app"""
+    try:
+        available_models = get_available_models()
+        if available_models:
+            default_model = available_models[0]
+            load_model(default_model)
+            logger.info(f"Default model '{default_model}' loaded successfully")
+        else:
+            logger.warning("No models found in models folder")
+    except Exception as e:
+        logger.error(f"Could not load default model (this is OK, load manually): {e}")
+
+# Try to load default model, but don't crash if it fails
+# safe_load_default_model()  # Commented out for now
 
 @app.route('/')
 def home():

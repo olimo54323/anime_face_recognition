@@ -1,6 +1,5 @@
 import cv2
 import numpy as np
-from tensorflow.keras.applications.resnet50 import preprocess_input
 
 def preprocess_image(image_path, target_size=(224, 224), model_type='resnet50'):
     """
@@ -30,7 +29,18 @@ def preprocess_image(image_path, target_size=(224, 224), model_type='resnet50'):
         # Convert to float and normalize
         image = image.astype(np.float32)
         
-        image = preprocess_input(image)
+        # Apply ResNet50-style preprocessing (same as ImageNet)
+        if model_type.lower() in ['resnet50', 'mobilenetv2', 'efficientnetb0', 'efficientnetb1']:
+            # ImageNet preprocessing: 
+            # Convert from RGB [0,255] to BGR [-103.939, 116.779, 123.68]
+            image = image[..., ::-1]  # RGB to BGR
+            mean = [103.939, 116.779, 123.68]
+            image[..., 0] -= mean[0]  # B
+            image[..., 1] -= mean[1]  # G  
+            image[..., 2] -= mean[2]  # R
+        else:
+            # Default normalization for custom models
+            image = image / 255.0
         
         return image
         
