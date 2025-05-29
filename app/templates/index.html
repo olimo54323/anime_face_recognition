@@ -31,9 +31,8 @@
             border-radius: 8px;
             padding: 15px;
             margin-bottom: 20px;
-            text-align: center;
         }
-        .current-model {
+        .current-model-info {
             margin-top: 10px;
             font-style: italic;
             color: #6c757d;
@@ -59,6 +58,7 @@
             max-width: 100%;
             max-height: 400px;
             border-radius: 5px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
         .result-section {
             display: none;
@@ -75,18 +75,35 @@
             padding: 15px;
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
             align-items: center;
+            transition: transform 0.2s;
+        }
+        .character-card:hover {
+            transform: translateY(-2px);
+        }
+        .character-rank {
+            font-size: 24px;
+            font-weight: bold;
+            margin-right: 15px;
+            color: #6c757d;
+            min-width: 40px;
         }
         .character-percentage {
             font-size: 24px;
             font-weight: bold;
             margin-right: 20px;
             color: #4a4a4a;
+            min-width: 80px;
         }
         .character-info {
             flex-grow: 1;
         }
+        .character-name {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
         .progress {
-            height: 10px;
+            height: 12px;
             margin-top: 8px;
         }
         .loading {
@@ -102,6 +119,19 @@
             color: #dc3545;
             margin-top: 10px;
             display: none;
+            padding: 10px;
+            background-color: #f8d7da;
+            border-radius: 5px;
+            border: 1px solid #f5c6cb;
+        }
+        .success-message {
+            color: #155724;
+            margin-top: 10px;
+            display: none;
+            padding: 10px;
+            background-color: #d4edda;
+            border-radius: 5px;
+            border: 1px solid #c3e6cb;
         }
         .footer {
             text-align: center;
@@ -110,58 +140,84 @@
             border-top: 1px solid #eee;
             color: #6c757d;
         }
+        .rank-1 { border-left: 4px solid #28a745; }
+        .rank-2 { border-left: 4px solid #ffc107; }
+        .rank-3 { border-left: 4px solid #dc3545; }
     </style>
 </head>
 <body>
     <div class="main-container">
         <div class="header">
-            <h1>Anime Face Recognition</h1>
+            <h1>🎌 Anime Face Recognition</h1>
             <p class="text-muted">Rozpoznawanie postaci z anime na podstawie twarzy</p>
         </div>
 
         <div class="model-selector">
-            <h4>Wybierz model</h4>
-            <div class="btn-group mb-3" role="group" id="model-buttons">
-                <button type="button" class="btn btn-outline-primary model-btn" data-model="mobilenetv2">MobileNetV2</button>
-                <button type="button" class="btn btn-outline-primary model-btn" data-model="efficientnetb0">EfficientNetB0</button>
-                <button type="button" class="btn btn-outline-primary model-btn" data-model="efficientnetb1">EfficientNetB1</button>
-                <button type="button" class="btn btn-outline-primary model-btn" data-model="resnet50">ResNet50</button>
+            <h4>📋 Wybierz model</h4>
+            <div class="row">
+                <div class="col-md-8">
+                    <select class="form-select" id="model-select">
+                        <option value="">Wybierz model...</option>
+                        {% for model in available_models %}
+                        <option value="{{ model }}" {% if model == current_model %}selected{% endif %}>{{ model }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <button type="button" class="btn btn-primary w-100" id="load-model-btn">Załaduj model</button>
+                </div>
             </div>
-            <p class="current-model">Aktualny model: <span id="current-model">{{ model_type }}</span></p>
+            <div class="current-model-info">
+                <strong>Aktualny model:</strong> <span id="current-model">{{ current_model or 'Brak' }}</span><br>
+                <strong>Rozpoznawane postacie:</strong> <span id="character-count">{{ characters|length }}</span>
+            </div>
+            <div class="success-message" id="model-success-message"></div>
+            <div class="error-message" id="model-error-message"></div>
         </div>
 
         <div class="upload-section">
-            <h4>Wgraj zdjęcie z twarzą postaci anime</h4>
+            <h4>📤 Wgraj zdjęcie z twarzą postaci anime</h4>
             <form id="upload-form" enctype="multipart/form-data">
                 <div class="mb-3">
                     <input class="form-control" type="file" id="image-upload" accept=".jpg,.jpeg,.png">
+                    <div class="form-text">Obsługiwane formaty: JPG, JPEG, PNG. Maksymalny rozmiar: 10MB</div>
                 </div>
-                <button type="submit" class="btn btn-primary">Rozpoznaj postać</button>
+                <button type="submit" class="btn btn-primary btn-lg">🔍 Rozpoznaj postać</button>
             </form>
-            <div class="error-message" id="error-message"></div>
+            <div class="error-message" id="upload-error-message"></div>
         </div>
 
         <div class="preview-container" id="preview-container">
-            <p class="text-muted">Tu pojawi się podgląd zdjęcia...</p>
+            <p class="text-muted">📷 Tu pojawi się podgląd zdjęcia...</p>
         </div>
 
         <div class="loading" id="loading">
             <div class="spinner-border text-primary" role="status">
                 <span class="visually-hidden">Analizowanie...</span>
             </div>
-            <p class="mt-2">Analizowanie obrazu...</p>
+            <p class="mt-2">🤖 Analizowanie obrazu...</p>
         </div>
 
         <div class="result-section" id="result-section">
-            <h4>Wyniki rozpoznawania</h4>
+            <h4>🏆 TOP 3 - Wyniki rozpoznawania</h4>
             <div id="results-container">
                 <!-- Wyniki będą tutaj dynamicznie dodawane -->
             </div>
         </div>
 
         <div class="footer">
-            <p>Projekt rozpoznawania twarzy postaci anime | 2025</p>
-            <p class="small">Wykorzystane modele: MobileNetV2, EfficientNetB0, EfficientNetB1, ResNet50</p>
+            <p><strong>Projekt rozpoznawania twarzy postaci anime</strong> | 2025</p>
+            <p class="small">Wykorzystuje modele uczenia maszynowego do klasyfikacji twarzy postaci anime</p>
+            {% if characters %}
+            <details class="mt-3">
+                <summary class="btn btn-outline-secondary btn-sm">Pokaż wszystkie rozpoznawane postacie ({{ characters|length }})</summary>
+                <div class="mt-2">
+                    {% for character in characters %}
+                        <span class="badge bg-secondary me-1 mb-1">{{ character }}</span>
+                    {% endfor %}
+                </div>
+            </details>
+            {% endif %}
         </div>
     </div>
 
@@ -175,135 +231,141 @@
             const resultSection = document.getElementById('result-section');
             const resultsContainer = document.getElementById('results-container');
             const loadingElement = document.getElementById('loading');
-            const errorMessage = document.getElementById('error-message');
-            const modelButtons = document.querySelectorAll('.model-btn');
+            const uploadErrorMessage = document.getElementById('upload-error-message');
+            const modelErrorMessage = document.getElementById('model-error-message');
+            const modelSuccessMessage = document.getElementById('model-success-message');
+            const modelSelect = document.getElementById('model-select');
+            const loadModelBtn = document.getElementById('load-model-btn');
             const currentModelSpan = document.getElementById('current-model');
-            
-            // Ustaw aktywny przycisk modelu
-            modelButtons.forEach(button => {
-                if (button.getAttribute('data-model') === currentModelSpan.textContent) {
-                    button.classList.add('active');
-                    button.classList.remove('btn-outline-primary');
-                    button.classList.add('btn-primary');
+            const characterCountSpan = document.getElementById('character-count');
+
+            // Load model functionality
+            loadModelBtn.addEventListener('click', function() {
+                const selectedModel = modelSelect.value;
+                
+                if (!selectedModel) {
+                    showModelError('Proszę wybrać model z listy');
+                    return;
                 }
                 
-                button.addEventListener('click', function() {
-                    const modelType = this.getAttribute('data-model');
-                    
-                    // Wyłącz wszystkie przyciski
-                    modelButtons.forEach(btn => {
-                        btn.disabled = true;
-                    });
-                    
-                    // Pokaż ładowanie
-                    currentModelSpan.textContent = 'Ładowanie...';
-                    
-                    // Wyślij żądanie do API
-                    fetch(`/model/${modelType}`, {
-                        method: 'POST'
+                // Disable button and show loading
+                loadModelBtn.disabled = true;
+                loadModelBtn.innerHTML = '⏳ Ładowanie...';
+                
+                // Hide previous messages
+                hideMessages();
+                
+                // Send request to switch model
+                fetch('/switch_model', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        'model_name': selectedModel
                     })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            // Aktualizuj interfejs
-                            currentModelSpan.textContent = data.model_type;
-                            
-                            // Aktualizuj aktywny przycisk
-                            modelButtons.forEach(btn => {
-                                btn.classList.remove('active');
-                                btn.classList.add('btn-outline-primary');
-                                btn.classList.remove('btn-primary');
-                            });
-                            
-                            this.classList.add('active');
-                            this.classList.remove('btn-outline-primary');
-                            this.classList.add('btn-primary');
-                            
-                            // Wyczyść poprzednie wyniki
-                            resultSection.style.display = 'none';
-                            previewContainer.innerHTML = '<p class="text-muted">Tu pojawi się podgląd zdjęcia...</p>';
-                            
-                            // Pokaż komunikat sukcesu
-                            alert(`Pomyślnie zmieniono model na ${data.model_type}`);
-                        } else {
-                            // Pokaż błąd
-                            alert(`Błąd: ${data.error}`);
-                            currentModelSpan.textContent = document.querySelector('.model-btn.active').getAttribute('data-model');
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        alert('Wystąpił błąd podczas zmiany modelu');
-                        currentModelSpan.textContent = document.querySelector('.model-btn.active').getAttribute('data-model');
-                    })
-                    .finally(() => {
-                        // Włącz przyciski z powrotem
-                        modelButtons.forEach(btn => {
-                            btn.disabled = false;
-                        });
-                    });
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Update UI
+                        currentModelSpan.textContent = data.model_name;
+                        characterCountSpan.textContent = data.num_classes;
+                        
+                        // Show success message
+                        showModelSuccess(`Model ${data.model_name} załadowany pomyślnie! Rozpoznaje ${data.num_classes} postaci.`);
+                        
+                        // Clear previous results
+                        resultSection.style.display = 'none';
+                        previewContainer.innerHTML = '<p class="text-muted">📷 Tu pojawi się podgląd zdjęcia...</p>';
+                        
+                        // Update character list in footer if needed
+                        // You could reload the page or update the character list dynamically
+                        
+                    } else {
+                        showModelError(data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showModelError('Wystąpił błąd podczas ładowania modelu');
+                })
+                .finally(() => {
+                    // Re-enable button
+                    loadModelBtn.disabled = false;
+                    loadModelBtn.innerHTML = 'Załaduj model';
                 });
             });
 
-            // Podgląd obrazu po wybraniu
+            // Image preview functionality
             imageUpload.addEventListener('change', function() {
                 const file = this.files[0];
                 if (file) {
+                    // Validate file size (10MB)
+                    if (file.size > 10 * 1024 * 1024) {
+                        showUploadError('Plik jest za duży. Maksymalny rozmiar to 10MB.');
+                        this.value = '';
+                        return;
+                    }
+                    
                     const reader = new FileReader();
                     reader.onload = function(e) {
-                        previewContainer.innerHTML = `<img src="${e.target.result}" alt="Preview">`;
+                        previewContainer.innerHTML = `<img src="${e.target.result}" alt="Podgląd zdjęcia">`;
                     };
                     reader.readAsDataURL(file);
                     
-                    // Resetuj wyniki i błędy
+                    // Reset results and errors
                     resultSection.style.display = 'none';
-                    errorMessage.style.display = 'none';
+                    hideMessages();
                 }
             });
 
-            // Obsługa formularza
+            // Form submission
             uploadForm.addEventListener('submit', function(e) {
                 e.preventDefault();
                 
                 const file = imageUpload.files[0];
                 if (!file) {
-                    errorMessage.textContent = 'Proszę wybrać plik obrazu';
-                    errorMessage.style.display = 'block';
+                    showUploadError('Proszę wybrać plik obrazu');
                     return;
                 }
                 
-                // Pokaż ładowanie
+                // Check if model is loaded
+                if (currentModelSpan.textContent === 'Brak') {
+                    showUploadError('Proszę najpierw załadować model');
+                    return;
+                }
+                
+                // Show loading
                 loadingElement.style.display = 'block';
                 
-                // Ukryj poprzednie wyniki i błędy
+                // Hide previous results and errors
                 resultSection.style.display = 'none';
-                errorMessage.style.display = 'none';
+                hideMessages();
                 
-                // Utwórz dane formularza
+                // Create form data
                 const formData = new FormData();
                 formData.append('file', file);
                 
-                // Wyślij żądanie do serwera
+                // Send request to server
                 fetch('/predict', {
                     method: 'POST',
                     body: formData
                 })
                 .then(response => response.json())
                 .then(data => {
-                    // Ukryj ładowanie
+                    // Hide loading
                     loadingElement.style.display = 'none';
                     
                     if (data.error) {
-                        // Pokaż błąd
-                        errorMessage.textContent = data.error;
-                        errorMessage.style.display = 'block';
+                        showUploadError(data.error);
                     } else if (data.success) {
-                        // Wyczyść poprzednie wyniki
+                        // Clear previous results
                         resultsContainer.innerHTML = '';
                         
-                        // Przetwórz wyniki
-                        data.top_predictions.forEach(prediction => {
-                            // Ustal klasę paska postępu na podstawie prawdopodobieństwa
+                        // Process results
+                        data.top_predictions.forEach((prediction, index) => {
+                            // Determine progress bar class based on probability
                             let progressClass = 'bg-danger';
                             if (prediction.probability > 0.7) {
                                 progressClass = 'bg-success';
@@ -311,12 +373,17 @@
                                 progressClass = 'bg-warning';
                             }
                             
-                            // Utwórz HTML dla karty postaci
+                            // Determine rank styling
+                            const rankClass = `rank-${index + 1}`;
+                            const rankEmoji = ['🥇', '🥈', '🥉'][index];
+                            
+                            // Create HTML for character card
                             const characterCard = `
-                                <div class="character-card">
+                                <div class="character-card ${rankClass}">
+                                    <div class="character-rank">${rankEmoji}</div>
                                     <div class="character-percentage">${prediction.percentage}</div>
                                     <div class="character-info">
-                                        <h5>${prediction.character}</h5>
+                                        <div class="character-name">${prediction.character}</div>
                                         <div class="progress">
                                             <div class="progress-bar ${progressClass}" role="progressbar" 
                                                 style="width: ${prediction.probability * 100}%" 
@@ -327,24 +394,53 @@
                                 </div>
                             `;
                             
-                            // Dodaj do kontenera wyników
+                            // Add to results container
                             resultsContainer.innerHTML += characterCard;
                         });
                         
-                        // Pokaż sekcję wyników
+                        // Show results section
                         resultSection.style.display = 'block';
                     }
                 })
                 .catch(error => {
-                    // Ukryj ładowanie
+                    // Hide loading
                     loadingElement.style.display = 'none';
                     
-                    // Pokaż błąd
-                    errorMessage.textContent = 'Wystąpił błąd podczas komunikacji z serwerem.';
-                    errorMessage.style.display = 'block';
+                    showUploadError('Wystąpił błąd podczas komunikacji z serwerem.');
                     console.error('Error:', error);
                 });
             });
+
+            // Helper functions
+            function showUploadError(message) {
+                uploadErrorMessage.textContent = message;
+                uploadErrorMessage.style.display = 'block';
+                setTimeout(() => {
+                    uploadErrorMessage.style.display = 'none';
+                }, 5000);
+            }
+
+            function showModelError(message) {
+                modelErrorMessage.textContent = message;
+                modelErrorMessage.style.display = 'block';
+                setTimeout(() => {
+                    modelErrorMessage.style.display = 'none';
+                }, 5000);
+            }
+
+            function showModelSuccess(message) {
+                modelSuccessMessage.textContent = message;
+                modelSuccessMessage.style.display = 'block';
+                setTimeout(() => {
+                    modelSuccessMessage.style.display = 'none';
+                }, 5000);
+            }
+
+            function hideMessages() {
+                uploadErrorMessage.style.display = 'none';
+                modelErrorMessage.style.display = 'none';
+                modelSuccessMessage.style.display = 'none';
+            }
         });
     </script>
 </body>
