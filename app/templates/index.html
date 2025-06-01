@@ -1,446 +1,278 @@
 <!DOCTYPE html>
-<html lang="pl">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Anime Face Recognition</title>
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
         body {
-            font-family: 'Arial', sans-serif;
-            background-color: #f5f5f5;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
             padding: 20px;
         }
-        .main-container {
-            max-width: 900px;
-            margin: 0 auto;
-            background-color: white;
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-            padding: 20px;
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            padding: 40px;
+            max-width: 800px;
+            width: 100%;
+            margin: 20px 0;
         }
+        
         .header {
             text-align: center;
-            margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 1px solid #eee;
+            margin-bottom: 40px;
         }
-        .model-selector {
-            background-color: #f8f9fa;
-            border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 20px;
+        
+        h1 {
+            color: #333;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
-        .current-model-info {
-            margin-top: 10px;
-            font-style: italic;
-            color: #6c757d;
+        
+        .subtitle {
+            color: #666;
+            font-size: 1.2em;
         }
-        .upload-section {
-            background-color: #f9f9f9;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 20px;
-        }
-        .preview-container {
+        
+        .status {
             text-align: center;
-            margin: 20px 0;
-            min-height: 200px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border: 2px dashed #ddd;
-            border-radius: 8px;
-            padding: 10px;
-        }
-        .preview-container img {
-            max-width: 100%;
-            max-height: 400px;
-            border-radius: 5px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        }
-        .result-section {
-            display: none;
-            margin: 20px 0;
-            padding: 20px;
-            background-color: #f0f8ff;
-            border-radius: 8px;
-        }
-        .character-card {
-            display: flex;
-            margin-bottom: 15px;
-            background-color: white;
-            border-radius: 8px;
+            margin-bottom: 30px;
             padding: 15px;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
-            align-items: center;
-            transition: transform 0.2s;
-        }
-        .character-card:hover {
-            transform: translateY(-2px);
-        }
-        .character-rank {
-            font-size: 24px;
+            border-radius: 10px;
             font-weight: bold;
-            margin-right: 15px;
-            color: #6c757d;
-            min-width: 40px;
         }
-        .character-percentage {
-            font-size: 24px;
-            font-weight: bold;
-            margin-right: 20px;
-            color: #4a4a4a;
-            min-width: 80px;
-        }
-        .character-info {
-            flex-grow: 1;
-        }
-        .character-name {
-            font-size: 18px;
-            font-weight: 600;
-            margin-bottom: 8px;
-        }
-        .progress {
-            height: 12px;
-            margin-top: 8px;
-        }
-        .loading {
-            display: none;
-            text-align: center;
-            margin: 20px 0;
-        }
-        .spinner-border {
-            width: 3rem;
-            height: 3rem;
-        }
-        .error-message {
-            color: #dc3545;
-            margin-top: 10px;
-            display: none;
-            padding: 10px;
-            background-color: #f8d7da;
-            border-radius: 5px;
-            border: 1px solid #f5c6cb;
-        }
-        .success-message {
+        
+        .status.loaded {
+            background: #d4edda;
             color: #155724;
-            margin-top: 10px;
-            display: none;
-            padding: 10px;
-            background-color: #d4edda;
-            border-radius: 5px;
             border: 1px solid #c3e6cb;
         }
-        .footer {
-            text-align: center;
-            margin-top: 30px;
-            padding-top: 15px;
-            border-top: 1px solid #eee;
-            color: #6c757d;
+        
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
         }
-        .rank-1 { border-left: 4px solid #28a745; }
-        .rank-2 { border-left: 4px solid #ffc107; }
-        .rank-3 { border-left: 4px solid #dc3545; }
+        
+        .upload-section {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            background: #f8f9ff;
+            margin-bottom: 30px;
+        }
+        
+        .file-input {
+            margin: 20px 0;
+        }
+        
+        .file-input input[type="file"] {
+            padding: 10px;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            background: white;
+            font-size: 16px;
+        }
+        
+        .submit-button {
+            background: linear-gradient(45deg, #764ba2, #667eea);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 25px;
+            font-size: 1.2em;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 20px;
+            transition: transform 0.3s ease;
+        }
+        
+        .submit-button:hover {
+            transform: translateY(-2px);
+        }
+        
+        .submit-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .preview {
+            margin-top: 20px;
+            text-align: center;
+            display: none;
+        }
+        
+        .preview img {
+            max-width: 300px;
+            max-height: 300px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        .classes-section {
+            background: #f8f9ff;
+            border-radius: 15px;
+            padding: 25px;
+            margin-top: 30px;
+        }
+        
+        .classes-title {
+            color: #333;
+            font-size: 1.4em;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        
+        .classes-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 10px;
+        }
+        
+        .class-item {
+            background: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            text-align: center;
+            font-size: 0.9em;
+            color: #555;
+        }
+        
+        .flash-messages {
+            margin-bottom: 20px;
+        }
+        
+        .flash-message {
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
     </style>
 </head>
 <body>
-    <div class="main-container">
+    <div class="container">
         <div class="header">
             <h1>🎌 Anime Face Recognition</h1>
-            <p class="text-muted">Rozpoznawanie postaci z anime na podstawie twarzy</p>
+            <p class="subtitle">Recognize your favorite anime character!</p>
         </div>
-
-        <div class="model-selector">
-            <h4>📋 Wybierz model</h4>
-            <div class="row">
-                <div class="col-md-8">
-                    <select class="form-select" id="model-select">
-                        <option value="">Wybierz model...</option>
-                        {% for model in available_models %}
-                        <option value="{{ model }}" {% if model == current_model %}selected{% endif %}>{{ model }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="col-md-4">
-                    <button type="button" class="btn btn-primary w-100" id="load-model-btn">Załaduj model</button>
-                </div>
-            </div>
-            <div class="current-model-info">
-                <strong>Aktualny model:</strong> <span id="current-model">{{ current_model or 'Brak' }}</span><br>
-                <strong>Rozpoznawane postacie:</strong> <span id="character-count">{{ characters|length }}</span>
-            </div>
-            <div class="success-message" id="model-success-message"></div>
-            <div class="error-message" id="model-error-message"></div>
-        </div>
-
-        <div class="upload-section">
-            <h4>📤 Wgraj zdjęcie z twarzą postaci anime</h4>
-            <form id="upload-form" enctype="multipart/form-data">
-                <div class="mb-3">
-                    <input class="form-control" type="file" id="image-upload" accept=".jpg,.jpeg,.png">
-                    <div class="form-text">Obsługiwane formaty: JPG, JPEG, PNG. Maksymalny rozmiar: 10MB</div>
-                </div>
-                <button type="submit" class="btn btn-primary btn-lg">🔍 Rozpoznaj postać</button>
-            </form>
-            <div class="error-message" id="upload-error-message"></div>
-        </div>
-
-        <div class="preview-container" id="preview-container">
-            <p class="text-muted">📷 Tu pojawi się podgląd zdjęcia...</p>
-        </div>
-
-        <div class="loading" id="loading">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Analizowanie...</span>
-            </div>
-            <p class="mt-2">🤖 Analizowanie obrazu...</p>
-        </div>
-
-        <div class="result-section" id="result-section">
-            <h4>🏆 TOP 3 - Wyniki rozpoznawania</h4>
-            <div id="results-container">
-                <!-- Wyniki będą tutaj dynamicznie dodawane -->
-            </div>
-        </div>
-
-        <div class="footer">
-            <p><strong>Projekt rozpoznawania twarzy postaci anime</strong> | 2025</p>
-            <p class="small">Wykorzystuje modele uczenia maszynowego do klasyfikacji twarzy postaci anime</p>
-            {% if characters %}
-            <details class="mt-3">
-                <summary class="btn btn-outline-secondary btn-sm">Pokaż wszystkie rozpoznawane postacie ({{ characters|length }})</summary>
-                <div class="mt-2">
-                    {% for character in characters %}
-                        <span class="badge bg-secondary me-1 mb-1">{{ character }}</span>
-                    {% endfor %}
-                </div>
-            </details>
+        
+        <div class="status {% if model_loaded %}loaded{% else %}error{% endif %}">
+            {% if model_loaded %}
+                ✅ Model loaded successfully! Available classes: {{ class_names|length }}
+            {% else %}
+                ⚠️ Model is unavailable - prediction not possible
             {% endif %}
         </div>
+        
+        <!-- Flash messages -->
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for message in messages %}
+                        <div class="flash-message">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+        
+        <form method="post" action="{{ url_for('upload_file') }}" enctype="multipart/form-data" id="uploadForm">
+            <div class="upload-section">
+                <div style="font-size: 3em; color: #667eea; margin-bottom: 20px;">📸</div>
+                <h3>Select anime character image</h3>
+                <div class="file-input">
+                    <input type="file" name="file" id="fileInput" accept="image/*" required>
+                </div>
+            </div>
+            
+            <div class="preview" id="preview">
+                <img id="previewImage" src="" alt="Preview">
+                <div id="fileInfo" style="margin-top: 15px; color: #666; font-size: 0.9em;"></div>
+            </div>
+            
+            <button type="submit" class="submit-button" id="submitButton">
+                🔍 Analyze Image
+            </button>
+        </form>
+        
+        {% if class_names %}
+        <div class="classes-section">
+            <h3 class="classes-title">📋 Available Characters ({{ class_names|length }})</h3>
+            <div class="classes-grid">
+                {% for class_name in class_names %}
+                    <div class="class-item">{{ class_name.replace('_', ' ').title() }}</div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
     </div>
-
-    <!-- Scripts -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const uploadForm = document.getElementById('upload-form');
-            const imageUpload = document.getElementById('image-upload');
-            const previewContainer = document.getElementById('preview-container');
-            const resultSection = document.getElementById('result-section');
-            const resultsContainer = document.getElementById('results-container');
-            const loadingElement = document.getElementById('loading');
-            const uploadErrorMessage = document.getElementById('upload-error-message');
-            const modelErrorMessage = document.getElementById('model-error-message');
-            const modelSuccessMessage = document.getElementById('model-success-message');
-            const modelSelect = document.getElementById('model-select');
-            const loadModelBtn = document.getElementById('load-model-btn');
-            const currentModelSpan = document.getElementById('current-model');
-            const characterCountSpan = document.getElementById('character-count');
-
-            // Load model functionality
-            loadModelBtn.addEventListener('click', function() {
-                const selectedModel = modelSelect.value;
-                
-                if (!selectedModel) {
-                    showModelError('Proszę wybrać model z listy');
+        const fileInput = document.getElementById('fileInput');
+        const preview = document.getElementById('preview');
+        const previewImage = document.getElementById('previewImage');
+        const fileInfo = document.getElementById('fileInfo');
+        const submitButton = document.getElementById('submitButton');
+        
+        fileInput.addEventListener('change', function() {
+            const file = fileInput.files[0];
+            if (file) {
+                // Check file type
+                if (!file.type.startsWith('image/')) {
+                    alert('Please select an image file!');
                     return;
                 }
                 
-                // Disable button and show loading
-                loadModelBtn.disabled = true;
-                loadModelBtn.innerHTML = '⏳ Ładowanie...';
-                
-                // Hide previous messages
-                hideMessages();
-                
-                // Send request to switch model
-                fetch('/switch_model', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        'model_name': selectedModel
-                    })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        // Update UI
-                        currentModelSpan.textContent = data.model_name;
-                        characterCountSpan.textContent = data.num_classes;
-                        
-                        // Show success message
-                        showModelSuccess(`Model ${data.model_name} załadowany pomyślnie! Rozpoznaje ${data.num_classes} postaci.`);
-                        
-                        // Clear previous results
-                        resultSection.style.display = 'none';
-                        previewContainer.innerHTML = '<p class="text-muted">📷 Tu pojawi się podgląd zdjęcia...</p>';
-                        
-                        // Update character list in footer if needed
-                        // You could reload the page or update the character list dynamically
-                        
-                    } else {
-                        showModelError(data.error);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    showModelError('Wystąpił błąd podczas ładowania modelu');
-                })
-                .finally(() => {
-                    // Re-enable button
-                    loadModelBtn.disabled = false;
-                    loadModelBtn.innerHTML = 'Załaduj model';
-                });
-            });
-
-            // Image preview functionality
-            imageUpload.addEventListener('change', function() {
-                const file = this.files[0];
-                if (file) {
-                    // Validate file size (10MB)
-                    if (file.size > 10 * 1024 * 1024) {
-                        showUploadError('Plik jest za duży. Maksymalny rozmiar to 10MB.');
-                        this.value = '';
-                        return;
-                    }
-                    
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        previewContainer.innerHTML = `<img src="${e.target.result}" alt="Podgląd zdjęcia">`;
-                    };
-                    reader.readAsDataURL(file);
-                    
-                    // Reset results and errors
-                    resultSection.style.display = 'none';
-                    hideMessages();
-                }
-            });
-
-            // Form submission
-            uploadForm.addEventListener('submit', function(e) {
-                e.preventDefault();
-                
-                const file = imageUpload.files[0];
-                if (!file) {
-                    showUploadError('Proszę wybrać plik obrazu');
+                // Check file size (16MB max)
+                if (file.size > 16 * 1024 * 1024) {
+                    alert('File is too large! Maximum size is 16MB.');
                     return;
                 }
                 
-                // Check if model is loaded
-                if (currentModelSpan.textContent === 'Brak') {
-                    showUploadError('Proszę najpierw załadować model');
-                    return;
-                }
-                
-                // Show loading
-                loadingElement.style.display = 'block';
-                
-                // Hide previous results and errors
-                resultSection.style.display = 'none';
-                hideMessages();
-                
-                // Create form data
-                const formData = new FormData();
-                formData.append('file', file);
-                
-                // Send request to server
-                fetch('/predict', {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(response => response.json())
-                .then(data => {
-                    // Hide loading
-                    loadingElement.style.display = 'none';
+                // Show preview
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    previewImage.src = e.target.result;
+                    preview.style.display = 'block';
                     
-                    if (data.error) {
-                        showUploadError(data.error);
-                    } else if (data.success) {
-                        // Clear previous results
-                        resultsContainer.innerHTML = '';
-                        
-                        // Process results
-                        data.top_predictions.forEach((prediction, index) => {
-                            // Determine progress bar class based on probability
-                            let progressClass = 'bg-danger';
-                            if (prediction.probability > 0.7) {
-                                progressClass = 'bg-success';
-                            } else if (prediction.probability > 0.4) {
-                                progressClass = 'bg-warning';
-                            }
-                            
-                            // Determine rank styling
-                            const rankClass = `rank-${index + 1}`;
-                            const rankEmoji = ['🥇', '🥈', '🥉'][index];
-                            
-                            // Create HTML for character card
-                            const characterCard = `
-                                <div class="character-card ${rankClass}">
-                                    <div class="character-rank">${rankEmoji}</div>
-                                    <div class="character-percentage">${prediction.percentage}</div>
-                                    <div class="character-info">
-                                        <div class="character-name">${prediction.character}</div>
-                                        <div class="progress">
-                                            <div class="progress-bar ${progressClass}" role="progressbar" 
-                                                style="width: ${prediction.probability * 100}%" 
-                                                aria-valuenow="${prediction.probability * 100}" 
-                                                aria-valuemin="0" aria-valuemax="100"></div>
-                                        </div>
-                                    </div>
-                                </div>
-                            `;
-                            
-                            // Add to results container
-                            resultsContainer.innerHTML += characterCard;
-                        });
-                        
-                        // Show results section
-                        resultSection.style.display = 'block';
-                    }
-                })
-                .catch(error => {
-                    // Hide loading
-                    loadingElement.style.display = 'none';
-                    
-                    showUploadError('Wystąpił błąd podczas komunikacji z serwerem.');
-                    console.error('Error:', error);
-                });
-            });
-
-            // Helper functions
-            function showUploadError(message) {
-                uploadErrorMessage.textContent = message;
-                uploadErrorMessage.style.display = 'block';
-                setTimeout(() => {
-                    uploadErrorMessage.style.display = 'none';
-                }, 5000);
+                    // File information
+                    const sizeKB = (file.size / 1024).toFixed(2);
+                    fileInfo.innerHTML = `
+                        <strong>${file.name}</strong><br>
+                        Size: ${sizeKB} KB<br>
+                        Type: ${file.type}
+                    `;
+                };
+                reader.readAsDataURL(file);
             }
-
-            function showModelError(message) {
-                modelErrorMessage.textContent = message;
-                modelErrorMessage.style.display = 'block';
-                setTimeout(() => {
-                    modelErrorMessage.style.display = 'none';
-                }, 5000);
-            }
-
-            function showModelSuccess(message) {
-                modelSuccessMessage.textContent = message;
-                modelSuccessMessage.style.display = 'block';
-                setTimeout(() => {
-                    modelSuccessMessage.style.display = 'none';
-                }, 5000);
-            }
-
-            function hideMessages() {
-                uploadErrorMessage.style.display = 'none';
-                modelErrorMessage.style.display = 'none';
-                modelSuccessMessage.style.display = 'none';
-            }
+        });
+        
+        // Loading animation on submit
+        document.getElementById('uploadForm').addEventListener('submit', function() {
+            submitButton.innerHTML = '⏳ Analyzing...';
+            submitButton.disabled = true;
         });
     </script>
 </body>

@@ -1,39 +1,35 @@
-# Use official TensorFlow image as the base image
-FROM tensorflow/tensorflow:latest
+# Użyj nowszego obrazu TensorFlow
+FROM tensorflow/tensorflow:2.18.0
 
-# Set working directory
+# Ustaw katalog roboczy
 WORKDIR /app
 
-# Install required packages for OpenCV
+# Zainstaluj wymagane pakiety systemowe
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     libgl1-mesa-glx \
     libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements file
+# Kopiuj requirements i zainstaluj zależności
 COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir --ignore-installed -r requirements.txt
 
-# Install dependencies with --ignore-installed flag to avoid errors with pre-installed packages
-RUN pip install --no-cache-dir --ignore-installed -r requirements.txt
-
-# Set up Kaggle API
-RUN mkdir -p /root/.kaggle
-COPY kaggle.json /root/.kaggle/
-RUN chmod 600 /root/.kaggle/kaggle.json
-
-# Copy the entire project
+# Kopiuj pliki aplikacji
 COPY . .
 
-# Create necessary directories
-RUN mkdir -p app/static/uploads
+# Ustaw zmienne środowiskowe
+ENV FLASK_APP=app/app.py
+ENV FLASK_ENV=production
+ENV PYTHONUNBUFFERED=1
 
 # Expose port
 EXPOSE 5000
 
-# Set environment variables
-ENV FLASK_APP=app/app.py
-ENV FLASK_ENV=production
-
-# Run the application
+# Uruchom aplikację
 CMD ["python", "app/app.py"]

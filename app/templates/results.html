@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Results - Anime Face Recognition</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            padding: 40px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        h1 {
+            color: #333;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .results-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            margin-bottom: 40px;
+        }
+        
+        .image-section {
+            text-align: center;
+        }
+        
+        .uploaded-image {
+            max-width: 100%;
+            max-height: 400px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+        }
+        
+        .image-info {
+            background: #f8f9ff;
+            padding: 20px;
+            border-radius: 10px;
+            color: #555;
+        }
+        
+        .predictions-section h2 {
+            color: #333;
+            margin-bottom: 25px;
+            font-size: 1.8em;
+            text-align: center;
+        }
+        
+        .prediction-item {
+            background: linear-gradient(135deg, #f8f9ff 0%, #e8eaff 100%);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .prediction-item:hover {
+            transform: translateY(-5px);
+        }
+        
+        .prediction-item.rank-1 {
+            background: linear-gradient(135deg, #ffd700 0%, #ffed4a 100%);
+            border: 3px solid #d4af37;
+        }
+        
+        .prediction-item.rank-2 {
+            background: linear-gradient(135deg, #c0c0c0 0%, #e8e8e8 100%);
+            border: 3px solid #a8a8a8;
+        }
+        
+        .prediction-item.rank-3 {
+            background: linear-gradient(135deg, #cd7f32 0%, #daa520 100%);
+            border: 3px solid #b8860b;
+        }
+        
+        .rank-badge {
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            background: #333;
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+        
+        .rank-badge.rank-1 { background: #d4af37; }
+        .rank-badge.rank-2 { background: #a8a8a8; }
+        .rank-badge.rank-3 { background: #b8860b; }
+        
+        .character-name {
+            font-size: 1.4em;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+            text-transform: capitalize;
+        }
+        
+        .confidence {
+            font-size: 1.1em;
+            color: #555;
+            margin-bottom: 15px;
+        }
+        
+        .confidence-bar {
+            background: #e0e0e0;
+            height: 10px;
+            border-radius: 5px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+        
+        .confidence-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            border-radius: 5px;
+            transition: width 1s ease;
+        }
+        
+        .medal {
+            font-size: 2em;
+            margin-right: 10px;
+        }
+        
+        .actions {
+            text-align: center;
+            margin-top: 40px;
+        }
+        
+        .button {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-size: 1.1em;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            margin: 10px;
+            transition: transform 0.3s ease;
+        }
+        
+        .button:hover {
+            transform: translateY(-2px);
+        }
+        
+        @media (max-width: 768px) {
+            .results-grid {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            
+            .container {
+                padding: 20px;
+            }
+            
+            h1 {
+                font-size: 2em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 Analysis Results</h1>
+        </div>
+        
+        <div class="results-grid">
+            <div class="image-section">
+                <h2>📸 Uploaded Image</h2>
+                {% if image_base64 %}
+                    <img src="data:image/jpeg;base64,{{ image_base64 }}" alt="Uploaded image" class="uploaded-image">
+                {% endif %}
+                <div class="image-info">
+                    <strong>Filename:</strong> {{ filename }}<br>
+                    <strong>Status:</strong> Analysis completed successfully ✅
+                </div>
+            </div>
+            
+            <div class="predictions-section">
+                <h2>🏆 Top 3 Predictions</h2>
+                
+                {% for prediction in predictions %}
+                <div class="prediction-item rank-{{ prediction.rank }}">
+                    <div class="rank-badge rank-{{ prediction.rank }}">{{ prediction.rank }}</div>
+                    
+                    <div style="display: flex; align-items: center; margin-bottom: 15px;">
+                        {% if prediction.rank == 1 %}
+                            <span class="medal">🥇</span>
+                        {% elif prediction.rank == 2 %}
+                            <span class="medal">🥈</span>
+                        {% elif prediction.rank == 3 %}
+                            <span class="medal">🥉</span>
+                        {% endif %}
+                        <div class="character-name">{{ prediction.character.replace('_', ' ').title() }}</div>
+                    </div>
+                    
+                    <div class="confidence">Confidence: {{ prediction.confidence }}%</div>
+                    
+                    <div class="confidence-bar">
+                        <div class="confidence-fill" style="width: {{ prediction.confidence }}%"></div>
+                    </div>
+                    
+                    {% if prediction.rank == 1 %}
+                        <div style="color: #d4af37; font-weight: bold; text-align: center; margin-top: 10px;">
+                            🌟 Best Match! 🌟
+                        </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <div class="actions">
+            <a href="{{ url_for('index') }}" class="button">📷 Analyze Another Image</a>
+        </div>
+        
+        {% if class_names %}
+        <div style="background: #f8f9ff; border-radius: 15px; padding: 25px; margin-top: 30px;">
+            <h3 style="text-align: center; color: #333; margin-bottom: 15px;">
+                📋 All Available Characters ({{ class_names|length }})
+            </h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px;">
+                {% for class_name in class_names %}
+                    <div style="background: white; padding: 10px 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); text-align: center; font-size: 0.9em; color: #555;">
+                        {{ class_name.replace('_', ' ').title() }}
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    
+    <script>
+        // Confidence bar animation
+        window.addEventListener('load', function() {
+            const bars = document.querySelectorAll('.confidence-fill');
+            bars.forEach(function(bar) {
+                const width = bar.style.width;
+                bar.style.width = '0%';
+                setTimeout(function() {
+                    bar.style.width = width;
+                }, 500);
+            });
+        });
+    </script>
+</body>
+</html>

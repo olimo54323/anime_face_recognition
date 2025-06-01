@@ -21,6 +21,27 @@ Project uses machine learning and computer vision techniques to recognize anime 
 ### Requirements
 - Python 3.8+
 - google colab/jupiter
+- docker
+
+```bash
+# Cloning the repository
+git clone https://github.com/olimo54323/anime_face_recognition.git
+cd anime-face-recognition 
+
+# Building Docker image
+docker build -t anime-face-recognition .
+
+# run docker container
+docker run -d --name anime-app -p 5000:5000 anime-face-recognition
+
+# (diagnostic) check logs
+docker logs anime-app
+```
+
+open:
+
+http://localhost:5000
+
 
 ## First model (small number of classes: 5) conclusion:
 ![training plots](img/training_plots.png)

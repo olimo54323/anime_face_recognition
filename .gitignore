@@ -29,7 +29,6 @@ venv/
 ENV/
 
 # Model files (large files)
-models/*.h5
 models/*.pb
 models/saved_model.pb
 models/variables/
@@ -45,7 +44,6 @@ data/*.png
 dataset/dataset/
 
 # Uploaded files
-app/static/uploads/*
 !app/static/uploads/.gitkeep
 
 # Flask

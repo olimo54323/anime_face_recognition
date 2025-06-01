@@ -1,340 +1,235 @@
-# Setup paths first
-import sys
 import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-# Import required libraries
-from flask import Flask, request, render_template, jsonify
 import numpy as np
 import cv2
 import pickle
-import logging
+from flask import Flask, render_template, request, redirect, url_for, flash
 from werkzeug.utils import secure_filename
-import glob
+import tensorflow as tf
+from tensorflow.keras.models import load_model
+from tensorflow.keras.applications.resnet50 import preprocess_input
+import base64
 
-# Force TensorFlow import with specific settings
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # Reduce TF logging
-os.environ['KERAS_BACKEND'] = 'tensorflow'
-
-# Import project-specific modules
-try:
-    from scripts.preprocessing import preprocess_image, validate_image
-except ImportError:
-    # Fallback import path
-    sys.path.append('/app')
-    from scripts.preprocessing import preprocess_image, validate_image
-
-# Lazy import for TensorFlow - only when needed
-tf = None
-
-def get_tensorflow():
-    """Lazy import TensorFlow only when needed with error handling"""
-    global tf
-    if tf is None:
-        try:
-            # Set TensorFlow to use only CPU and reduce warnings
-            os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
-            
-            import tensorflow as tf_module
-            
-            # Configure TensorFlow
-            tf_module.config.threading.set_intra_op_parallelism_threads(1)
-            tf_module.config.threading.set_inter_op_parallelism_threads(1)
-            
-            tf = tf_module
-            logger.info(f"TensorFlow loaded successfully, version: {tf.version.VERSION}")
-        except Exception as e:
-            logger.error(f"Failed to import TensorFlow: {e}")
-            raise ImportError(f"Could not import TensorFlow: {e}")
-    return tf
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO, 
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
-
-# Initialize Flask app
 app = Flask(__name__)
+app.config['SECRET_KEY'] = 'anime-face-recognition-key'
+app.config['UPLOAD_FOLDER'] = 'static/uploads'
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
-# Path configurations
-UPLOAD_FOLDER = 'app/static/uploads'
-MODELS_FOLDER = 'models'
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
+# Create upload folder if not exists
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-# Create directories if they don't exist
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-os.makedirs(MODELS_FOLDER, exist_ok=True)
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+# Allowed file extensions
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'bmp'}
 
-# Global variables for current model
-current_model = None
-current_class_names = []
-current_model_name = None
-
-def get_available_models():
-    """Get list of available models from models folder"""
-    available_models = []
-    
-    # Look for .h5 and .keras files
-    for extension in ['*.h5', '*.keras']:
-        model_files = glob.glob(os.path.join(MODELS_FOLDER, extension))
-        for model_file in model_files:
-            # Extract model name without extension
-            model_name = os.path.splitext(os.path.basename(model_file))[0]
-            
-            # Check for different pickle file naming patterns
-            pickle_patterns = [
-                f"{model_name}.pkl",                    # exact match
-                f"{model_name}_class_names.pkl",        # with _class_names suffix
-            ]
-            
-            pickle_found = False
-            for pattern in pickle_patterns:
-                pickle_file = os.path.join(MODELS_FOLDER, pattern)
-                if os.path.exists(pickle_file):
-                    pickle_found = True
-                    break
-            
-            if pickle_found:
-                available_models.append(model_name)
-    
-    return list(set(available_models))  # Remove duplicates
-
-def load_model(model_name):
-    """Load the specified model and its class names"""
-    global current_model, current_class_names, current_model_name
-    
-    logger.info(f"Attempting to load model: {model_name}")
-    
-    # Try both .h5 and .keras extensions
-    model_path = None
-    for extension in ['.h5', '.keras']:
-        potential_path = os.path.join(MODELS_FOLDER, f"{model_name}{extension}")
-        if os.path.exists(potential_path):
-            model_path = potential_path
-            break
-    
-    if model_path is None:
-        raise FileNotFoundError(f"Model file not found for: {model_name}")
-    
-    # Try different pickle file naming patterns
-    pickle_patterns = [
-        f"{model_name}.pkl",                    # exact match
-        f"{model_name}_class_names.pkl",        # with _class_names suffix
-    ]
-    
-    pickle_path = None
-    for pattern in pickle_patterns:
-        potential_path = os.path.join(MODELS_FOLDER, pattern)
-        if os.path.exists(potential_path):
-            pickle_path = potential_path
-            break
-    
-    if pickle_path is None:
-        raise FileNotFoundError(f"Class names file not found. Tried: {pickle_patterns}")
-    
-    # Load TensorFlow and the model with different strategies
-    tf = get_tensorflow()
-    
-    logger.info(f"potential path: {potential_path}")
-    logger.info(f"potential path: {model_path}")
-    try:
-        # Strategy 1: Try direct loading
-        current_model = tf.keras.models.load_model(model_path)
-        logger.info(f"Model loaded with keras.models.load_model")
-    except Exception as e1:
-        logger.warning(f"Direct loading failed: {e1}")
-        try:
-            # Strategy 2: Load with compile=False
-            current_model = tf.keras.models.load_model(model_path, compile=False)
-            logger.info(f"Model loaded with compile=False")
-        except Exception as e2:
-            logger.warning(f"Loading with compile=False failed: {e2}")
-            try:
-                # Strategy 3: Load as SavedModel if it's a directory
-                if os.path.isdir(model_path):
-                    current_model = tf.saved_model.load(model_path)
-                    logger.info(f"Model loaded as SavedModel")
-                else:
-                    raise Exception("All loading strategies failed")
-            except Exception as e3:
-                logger.error(f"All model loading strategies failed: {e1}, {e2}, {e3}")
-                raise Exception(f"Could not load model: {model_path}")
-    
-    # Load class names
-    with open(pickle_path, 'rb') as f:
-        current_class_names = pickle.load(f)
-    
-    current_model_name = model_name
-    
-    logger.info(f"Model loaded successfully from: {model_path}")
-    logger.info(f"Class names loaded from: {pickle_path}")
-    logger.info(f"Recognizes {len(current_class_names)} characters.")
-    logger.info(f"Characters: {current_class_names}")
-    
-    return current_model, current_class_names
+# Global variables for model and classes
+model = None
+class_names = []
+model_loaded = False
 
 def allowed_file(filename):
-    """Check if the file has an allowed extension"""
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-# Disable auto-loading of models at startup to avoid import errors
-def safe_load_default_model():
-    """Safely try to load default model without crashing the app"""
+def load_anime_model():
+    """Load model and class names"""
+    global model, class_names, model_loaded
+    
     try:
-        available_models = get_available_models()
-        if available_models:
-            default_model = available_models[0]
-            load_model(default_model)
-            logger.info(f"Default model '{default_model}' loaded successfully")
-        else:
-            logger.warning("No models found in models folder")
+        # Model file paths
+        model_dir = "models"
+        model_paths = [
+            os.path.join(model_dir, "anime_face_recognition_model.h5"),
+            os.path.join(model_dir, "anime_face_recognition_model.keras")
+        ]
+        
+        # Try to load model
+        model_loaded_successfully = False
+        for model_path in model_paths:
+            if os.path.exists(model_path):
+                try:
+                    print(f"Loading model from: {model_path}")
+                    model = load_model(model_path, compile=False)
+                    model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+                    model_loaded_successfully = True
+                    print(f"Model loaded successfully from: {model_path}")
+                    break
+                except Exception as e:
+                    print(f"Error loading model from {model_path}: {str(e)}")
+                    continue
+        
+        if not model_loaded_successfully:
+            print("ERROR: Cannot load model!")
+            model = None
+            class_names = []
+            model_loaded = False
+            return False
+        
+        # Load class names
+        class_names_paths = [
+            os.path.join(model_dir, "anime_face_recognition_model.pkl"),
+            "anime_face_recognition_model.pkl"
+        ]
+        
+        class_names_loaded = False
+        for class_path in class_names_paths:
+            if os.path.exists(class_path):
+                try:
+                    with open(class_path, 'rb') as f:
+                        class_names = pickle.load(f)
+                    print(f"Class names loaded from: {class_path}")
+                    print(f"Available classes: {class_names}")
+                    class_names_loaded = True
+                    break
+                except Exception as e:
+                    print(f"Error loading class names from {class_path}: {str(e)}")
+                    continue
+        
+        if not class_names_loaded:
+            print("Cannot load class names - using default")
+            num_classes = model.output_shape[-1] if model else 5
+            class_names = [f"character_{i+1}" for i in range(num_classes)]
+        
+        # Check if class_names has enough elements for model
+        if model and len(class_names) < model.output_shape[-1]:
+            print(f"WARNING: Model has {model.output_shape[-1]} classes, but class_names has only {len(class_names)}")
+            original_classes = class_names.copy()
+            while len(class_names) < model.output_shape[-1]:
+                class_names.append(f"unknown_class_{len(class_names)}")
+            print(f"Extended class_names to {len(class_names)} elements")
+        
+        model_loaded = True
+        return True
+        
     except Exception as e:
-        logger.error(f"Could not load default model (this is OK, load manually): {e}")
+        print(f"Critical error loading model: {str(e)}")
+        model_loaded = False
+        return False
 
-# Try to load default model, but don't crash if it fails
-# safe_load_default_model()  # Commented out for now
+def predict_anime_character(image_path):
+    """Predict anime character from image"""
+    global model, class_names, model_loaded
+    
+    if not model_loaded or model is None:
+        return None, "Model is unavailable. Prediction impossible."
+    
+    if not class_names:
+        return None, "Class names are unavailable. Prediction impossible."
+    
+    try:
+        # Load and prepare image (with preprocessing!)
+        test_img = cv2.imread(image_path)
+        if test_img is None:
+            raise ValueError(f"Cannot load image from {image_path}")
+        
+        test_img = cv2.resize(test_img, (224, 224))
+        test_img = test_img.astype(np.float32)
+        test_img = preprocess_input(test_img)
+        test_img = np.expand_dims(test_img, axis=0)
+        
+        # Prediction
+        result = model.predict(test_img, verbose=0)
+        
+        # Top 3
+        top_3_indices = np.argsort(result[0])[::-1][:3]
+        top_3_predictions = []
+        
+        for i, idx in enumerate(top_3_indices):
+            if idx < len(class_names):
+                character_name = class_names[idx]
+            else:
+                character_name = f"unknown_{idx}"
+            
+            confidence = float(result[0][idx]) * 100
+            top_3_predictions.append({
+                'rank': i + 1,
+                'character': character_name,
+                'confidence': round(confidence, 2)
+            })
+        
+        return top_3_predictions, None
+        
+    except Exception as e:
+        error_msg = f"Error during prediction: {str(e)}"
+        print(error_msg)
+        return None, error_msg
+
+def image_to_base64(image_path):
+    """Convert image to base64 for HTML display"""
+    try:
+        with open(image_path, "rb") as img_file:
+            encoded_string = base64.b64encode(img_file.read()).decode()
+        return encoded_string
+    except:
+        return None
 
 @app.route('/')
-def home():
-    """Render home page"""
-    available_models = get_available_models()
+def index():
+    """Main page"""
     return render_template('index.html', 
-                         characters=current_class_names, 
-                         current_model=current_model_name,
-                         available_models=available_models)
+                         class_names=class_names, 
+                         model_loaded=model_loaded)
 
-@app.route('/predict', methods=['POST'])
-def predict():
-    """Handle image upload and prediction with top 3 results"""
-    if current_model is None:
-        return jsonify({'error': 'No model loaded. Please check server logs.'})
-    
+@app.route('/upload', methods=['POST'])
+def upload_file():
+    """Upload and analyze file"""
     if 'file' not in request.files:
-        return jsonify({'error': 'No file part'})
+        flash('No file selected')
+        return redirect(url_for('index'))
     
     file = request.files['file']
-    
     if file.filename == '':
-        return jsonify({'error': 'No selected file'})
+        flash('No file selected')
+        return redirect(url_for('index'))
     
     if file and allowed_file(file.filename):
-        # Save uploaded file
-        filename = secure_filename(file.filename)
-        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        file.save(file_path)
-        
         try:
-            # Validate image
-            if not validate_image(file_path):
-                return jsonify({'error': 'Invalid or corrupted image file'})
+            filename = secure_filename(file.filename)
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(file_path)
             
-            # Preprocess image
-            processed_img = preprocess_image(file_path, target_size=(224, 224))
-            processed_img = np.expand_dims(processed_img, axis=0)
+            # Perform prediction
+            predictions, error = predict_anime_character(file_path)
             
-            # Make prediction
-            predictions = current_model.predict(processed_img)[0]
+            if error:
+                flash(f'Error during analysis: {error}')
+                return redirect(url_for('index'))
             
-            # Get top 3 predictions
-            top_3_indices = np.argsort(predictions)[-3:][::-1]  # Get top 3 in descending order
+            # Convert image to base64
+            image_base64 = image_to_base64(file_path)
             
-            # Prepare results
-            top_predictions = []
-            for idx in top_3_indices:
-                character_name = current_class_names[idx]
-                probability = float(predictions[idx])
-                percentage = f"{probability * 100:.2f}%"
-                
-                top_predictions.append({
-                    'character': character_name,
-                    'probability': probability,
-                    'percentage': percentage
-                })
+            return render_template('results.html', 
+                                 predictions=predictions,
+                                 image_base64=image_base64,
+                                 filename=filename,
+                                 class_names=class_names)
             
-            # Clean up uploaded file
-            try:
-                os.remove(file_path)
-            except:
-                pass
-            
-            return jsonify({
-                'success': True,
-                'model_name': current_model_name,
-                'top_predictions': top_predictions
-            })
-        
         except Exception as e:
-            logger.error(f"Error processing image: {e}")
-            # Clean up uploaded file in case of error
-            try:
-                os.remove(file_path)
-            except:
-                pass
-            return jsonify({
-                'error': f"Error processing image: {str(e)}"
-            })
-    
-    return jsonify({'error': 'Invalid file format. Please upload PNG, JPG, or JPEG file.'})
+            flash(f'Error processing file: {str(e)}')
+            return redirect(url_for('index'))
+    else:
+        flash('Invalid file format. Allowed: PNG, JPG, JPEG, GIF, BMP')
+        return redirect(url_for('index'))
 
-@app.route('/models', methods=['GET'])
-def list_models():
-    """List all available models"""
-    available_models = get_available_models()
-    
-    return jsonify({
-        'success': True,
-        'current_model': current_model_name,
-        'available_models': available_models,
-        'total_models': len(available_models)
-    })
-
-@app.route('/switch_model', methods=['POST'])
-def switch_model():
-    """Switch to a different model"""
-    data = request.get_json()
-    
-    if not data or 'model_name' not in data:
-        return jsonify({'error': 'Model name not provided'})
-    
-    model_name = data['model_name']
-    available_models = get_available_models()
-    
-    if model_name not in available_models:
-        return jsonify({'error': f'Model {model_name} not found. Available models: {available_models}'})
-    
-    try:
-        # Load the new model
-        load_model(model_name)
-        
-        logger.info(f"Successfully switched to model: {model_name}")
-        
-        return jsonify({
-            'success': True,
-            'model_name': current_model_name,
-            'num_classes': len(current_class_names),
-            'characters': current_class_names
-        })
-    
-    except Exception as e:
-        logger.error(f"Error switching to model {model_name}: {e}")
-        return jsonify({'error': f"Error loading model {model_name}: {str(e)}"})
-
-@app.route('/model_info')
-def model_info():
-    """Get current model information"""
-    if current_model is None:
-        return jsonify({'error': 'No model loaded'})
-    
-    return jsonify({
-        'success': True,
-        'model_name': current_model_name,
-        'num_classes': len(current_class_names),
-        'characters': current_class_names,
-        'model_summary': str(current_model.summary())
-    })
+@app.errorhandler(413)
+def too_large(e):
+    flash('File is too large. Maximum size is 16MB.')
+    return redirect(url_for('index'))
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    print("Starting Anime Face Recognition application...")
+    
+    # Load model at startup
+    print("Loading model...")
+    try:
+        success = load_anime_model()
+        
+        if success and model_loaded and model is not None:
+            print(f"SUCCESS: Model loaded successfully! Available classes: {len(class_names)}")
+            for i, name in enumerate(class_names):
+                print(f"  {i+1}. {name}")
+        else:
+            print("WARNING: Model not loaded - prediction will be unavailable")
+    except Exception as e:
+        print(f"ERROR during loading: {e}")
+    
+    print("Server starting on http://0.0.0.0:5000")
+    app.run(host='0.0.0.0', port=5000, debug=False)
