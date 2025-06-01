@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pl">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -176,14 +176,14 @@
     <div class="container">
         <div class="header">
             <h1>🎌 Anime Face Recognition</h1>
-            <p class="subtitle">Rozpoznaj swoją ulubioną postać anime!</p>
+            <p class="subtitle">Recognize your favorite anime character!</p>
         </div>
         
         <div class="status {% if model_loaded %}loaded{% else %}error{% endif %}">
             {% if model_loaded %}
-                ✅ Model załadowany pomyślnie! Dostępne klasy: {{ class_names|length }}
+                ✅ Model loaded successfully! Available classes: {{ class_names|length }}
             {% else %}
-                ⚠️ Model nie został załadowany - aplikacja w trybie demo
+                ⚠️ Model is unavailable - prediction not possible
             {% endif %}
         </div>
         
@@ -201,25 +201,25 @@
         <form method="post" action="{{ url_for('upload_file') }}" enctype="multipart/form-data" id="uploadForm">
             <div class="upload-section">
                 <div style="font-size: 3em; color: #667eea; margin-bottom: 20px;">📸</div>
-                <h3>Wybierz zdjęcie postaci anime</h3>
+                <h3>Select anime character image</h3>
                 <div class="file-input">
                     <input type="file" name="file" id="fileInput" accept="image/*" required>
                 </div>
             </div>
             
             <div class="preview" id="preview">
-                <img id="previewImage" src="" alt="Podgląd">
+                <img id="previewImage" src="" alt="Preview">
                 <div id="fileInfo" style="margin-top: 15px; color: #666; font-size: 0.9em;"></div>
             </div>
             
             <button type="submit" class="submit-button" id="submitButton">
-                🔍 Analizuj zdjęcie
+                🔍 Analyze Image
             </button>
         </form>
         
         {% if class_names %}
         <div class="classes-section">
-            <h3 class="classes-title">📋 Dostępne postaci ({{ class_names|length }})</h3>
+            <h3 class="classes-title">📋 Available Characters ({{ class_names|length }})</h3>
             <div class="classes-grid">
                 {% for class_name in class_names %}
                     <div class="class-item">{{ class_name.replace('_', ' ').title() }}</div>
@@ -239,30 +239,30 @@
         fileInput.addEventListener('change', function() {
             const file = fileInput.files[0];
             if (file) {
-                // Sprawdź typ pliku
+                // Check file type
                 if (!file.type.startsWith('image/')) {
-                    alert('Proszę wybrać plik obrazu!');
+                    alert('Please select an image file!');
                     return;
                 }
                 
-                // Sprawdź rozmiar (16MB max)
+                // Check file size (16MB max)
                 if (file.size > 16 * 1024 * 1024) {
-                    alert('Plik jest za duży! Maksymalny rozmiar to 16MB.');
+                    alert('File is too large! Maximum size is 16MB.');
                     return;
                 }
                 
-                // Pokaż podgląd
+                // Show preview
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     previewImage.src = e.target.result;
                     preview.style.display = 'block';
                     
-                    // Informacje o pliku
+                    // File information
                     const sizeKB = (file.size / 1024).toFixed(2);
                     fileInfo.innerHTML = `
                         <strong>${file.name}</strong><br>
-                        Rozmiar: ${sizeKB} KB<br>
-                        Typ: ${file.type}
+                        Size: ${sizeKB} KB<br>
+                        Type: ${file.type}
                     `;
                 };
                 reader.readAsDataURL(file);
@@ -271,7 +271,7 @@
         
         // Loading animation on submit
         document.getElementById('uploadForm').addEventListener('submit', function() {
-            submitButton.innerHTML = '⏳ Analizuję...';
+            submitButton.innerHTML = '⏳ Analyzing...';
             submitButton.disabled = true;
         });
     </script>

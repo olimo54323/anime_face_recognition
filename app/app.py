@@ -2,27 +2,25 @@ import os
 import numpy as np
 import cv2
 import pickle
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash
 from werkzeug.utils import secure_filename
 import tensorflow as tf
 from tensorflow.keras.models import load_model
 from tensorflow.keras.applications.resnet50 import preprocess_input
 import base64
-from io import BytesIO
-from PIL import Image
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your-secret-key-here'
+app.config['SECRET_KEY'] = 'anime-face-recognition-key'
 app.config['UPLOAD_FOLDER'] = 'static/uploads'
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
-# Utworz folder uploads jesli nie istnieje
+# Create upload folder if not exists
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-# Dozwolone rozszerzenia plikow
+# Allowed file extensions
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'bmp'}
 
-# Globalne zmienne dla modelu i klas
+# Global variables for model and classes
 model = None
 class_names = []
 model_loaded = False
@@ -32,41 +30,40 @@ def allowed_file(filename):
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def load_anime_model():
-    """Zaladuj model i nazwy klas"""
+    """Load model and class names"""
     global model, class_names, model_loaded
     
     try:
-        # Sciezki do plikow modelu
+        # Model file paths
         model_dir = "models"
         model_paths = [
             os.path.join(model_dir, "anime_face_recognition_model.h5"),
             os.path.join(model_dir, "anime_face_recognition_model.keras")
         ]
         
-        # Sprobuj zaladowac model
+        # Try to load model
         model_loaded_successfully = False
         for model_path in model_paths:
             if os.path.exists(model_path):
                 try:
-                    print(f"Ladowanie modelu z: {model_path}")
+                    print(f"Loading model from: {model_path}")
                     model = load_model(model_path, compile=False)
                     model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
                     model_loaded_successfully = True
-                    print(f"Model zaladowany pomyslnie z: {model_path}")
+                    print(f"Model loaded successfully from: {model_path}")
                     break
                 except Exception as e:
-                    print(f"Blad ladowania modelu z {model_path}: {str(e)}")
+                    print(f"Error loading model from {model_path}: {str(e)}")
                     continue
         
         if not model_loaded_successfully:
-            print("Nie mozna zaladowac modelu - tworze model testowy")
-            # Stworz prosty model testowy
-            model = create_dummy_model()
-            class_names = ["test_character_1", "test_character_2", "test_character_3"]
-            model_loaded = True
-            return True
+            print("ERROR: Cannot load model!")
+            model = None
+            class_names = []
+            model_loaded = False
+            return False
         
-        # Zaladuj nazwy klas
+        # Load class names
         class_names_paths = [
             os.path.join(model_dir, "anime_face_recognition_model.pkl"),
             "anime_face_recognition_model.pkl"
@@ -78,98 +75,70 @@ def load_anime_model():
                 try:
                     with open(class_path, 'rb') as f:
                         class_names = pickle.load(f)
-                    print(f"Nazwy klas zaladowane z: {class_path}")
-                    print(f"Dostepne klasy: {class_names}")
+                    print(f"Class names loaded from: {class_path}")
+                    print(f"Available classes: {class_names}")
                     class_names_loaded = True
                     break
                 except Exception as e:
-                    print(f"Blad ladowania nazw klas z {class_path}: {str(e)}")
+                    print(f"Error loading class names from {class_path}: {str(e)}")
                     continue
         
         if not class_names_loaded:
-            print("Nie mozna zaladowac nazw klas - uzywam domyslnych")
-            # Sprobuj wywnioskować z modelu
-            try:
-                num_classes = model.output_shape[-1]
-                class_names = [f"character_{i+1}" for i in range(num_classes)]
-            except:
-                class_names = ["character_1", "character_2", "character_3", "character_4", "character_5"]
+            print("Cannot load class names - using default")
+            num_classes = model.output_shape[-1] if model else 5
+            class_names = [f"character_{i+1}" for i in range(num_classes)]
+        
+        # Check if class_names has enough elements for model
+        if model and len(class_names) < model.output_shape[-1]:
+            print(f"WARNING: Model has {model.output_shape[-1]} classes, but class_names has only {len(class_names)}")
+            original_classes = class_names.copy()
+            while len(class_names) < model.output_shape[-1]:
+                class_names.append(f"unknown_class_{len(class_names)}")
+            print(f"Extended class_names to {len(class_names)} elements")
         
         model_loaded = True
         return True
         
     except Exception as e:
-        print(f"Krytyczny blad ladowania modelu: {str(e)}")
+        print(f"Critical error loading model: {str(e)}")
+        model_loaded = False
         return False
 
-def create_dummy_model():
-    """Stworz prosty model testowy"""
-    from tensorflow.keras.models import Sequential
-    from tensorflow.keras.layers import Dense, Flatten, Conv2D, MaxPooling2D
-    
-    model = Sequential([
-        Conv2D(32, (3, 3), activation='relu', input_shape=(224, 224, 3)),
-        MaxPooling2D(2, 2),
-        Conv2D(64, (3, 3), activation='relu'),
-        MaxPooling2D(2, 2),
-        Flatten(),
-        Dense(128, activation='relu'),
-        Dense(3, activation='softmax')  # 3 klasy testowe
-    ])
-    
-    model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
-    return model
-
-def preprocess_image_for_prediction(image_path, target_size=(224, 224)):
-    """Przetwarzanie obrazu do predykcji"""
-    try:
-        # Wczytaj obraz
-        image = cv2.imread(image_path)
-        if image is None:
-            raise ValueError(f"Nie mozna wczytac obrazu z {image_path}")
-        
-        # Zmien rozmiar
-        image = cv2.resize(image, target_size)
-        
-        # Konwertuj BGR do RGB
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        
-        # Normalizacja dla ResNet50
-        image = image.astype(np.float32)
-        image = preprocess_input(image)
-        
-        # Dodaj wymiar batch
-        image = np.expand_dims(image, axis=0)
-        
-        return image
-        
-    except Exception as e:
-        print(f"Blad przetwarzania obrazu: {str(e)}")
-        return None
-
 def predict_anime_character(image_path):
-    """Przewiduj postac anime z obrazu"""
+    """Predict anime character from image"""
     global model, class_names, model_loaded
     
     if not model_loaded or model is None:
-        return None, "Model nie jest zaladowany"
+        return None, "Model is unavailable. Prediction impossible."
+    
+    if not class_names:
+        return None, "Class names are unavailable. Prediction impossible."
     
     try:
-        # Przetwórz obraz
-        processed_image = preprocess_image_for_prediction(image_path)
-        if processed_image is None:
-            return None, "Nie mozna przetworzyc obrazu"
+        # Load and prepare image (with preprocessing!)
+        test_img = cv2.imread(image_path)
+        if test_img is None:
+            raise ValueError(f"Cannot load image from {image_path}")
         
-        # Wykonaj predykcje
-        predictions = model.predict(processed_image)
+        test_img = cv2.resize(test_img, (224, 224))
+        test_img = test_img.astype(np.float32)
+        test_img = preprocess_input(test_img)
+        test_img = np.expand_dims(test_img, axis=0)
         
-        # Pobierz top 3 predykcji
-        top_3_indices = np.argsort(predictions[0])[::-1][:3]
+        # Prediction
+        result = model.predict(test_img, verbose=0)
+        
+        # Top 3
+        top_3_indices = np.argsort(result[0])[::-1][:3]
         top_3_predictions = []
         
         for i, idx in enumerate(top_3_indices):
-            character_name = class_names[idx] if idx < len(class_names) else f"unknown_{idx}"
-            confidence = float(predictions[0][idx]) * 100
+            if idx < len(class_names):
+                character_name = class_names[idx]
+            else:
+                character_name = f"unknown_{idx}"
+            
+            confidence = float(result[0][idx]) * 100
             top_3_predictions.append({
                 'rank': i + 1,
                 'character': character_name,
@@ -179,12 +148,12 @@ def predict_anime_character(image_path):
         return top_3_predictions, None
         
     except Exception as e:
-        error_msg = f"Blad podczas predykcji: {str(e)}"
+        error_msg = f"Error during prediction: {str(e)}"
         print(error_msg)
         return None, error_msg
 
 def image_to_base64(image_path):
-    """Konwertuj obraz do base64 dla wyswietlenia w HTML"""
+    """Convert image to base64 for HTML display"""
     try:
         with open(image_path, "rb") as img_file:
             encoded_string = base64.b64encode(img_file.read()).decode()
@@ -194,21 +163,21 @@ def image_to_base64(image_path):
 
 @app.route('/')
 def index():
-    """Strona glowna"""
+    """Main page"""
     return render_template('index.html', 
                          class_names=class_names, 
                          model_loaded=model_loaded)
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
-    """Upload i analiza pliku"""
+    """Upload and analyze file"""
     if 'file' not in request.files:
-        flash('Nie wybrano pliku')
+        flash('No file selected')
         return redirect(url_for('index'))
     
     file = request.files['file']
     if file.filename == '':
-        flash('Nie wybrano pliku')
+        flash('No file selected')
         return redirect(url_for('index'))
     
     if file and allowed_file(file.filename):
@@ -217,14 +186,14 @@ def upload_file():
             file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             file.save(file_path)
             
-            # Wykonaj predykcje
+            # Perform prediction
             predictions, error = predict_anime_character(file_path)
             
             if error:
-                flash(f'Blad podczas analizy: {error}')
+                flash(f'Error during analysis: {error}')
                 return redirect(url_for('index'))
             
-            # Konwertuj obraz do base64
+            # Convert image to base64
             image_base64 = image_to_base64(file_path)
             
             return render_template('results.html', 
@@ -234,39 +203,33 @@ def upload_file():
                                  class_names=class_names)
             
         except Exception as e:
-            flash(f'Blad podczas przetwarzania pliku: {str(e)}')
+            flash(f'Error processing file: {str(e)}')
             return redirect(url_for('index'))
     else:
-        flash('Nieprawidlowy format pliku. Dozwolone: PNG, JPG, JPEG, GIF, BMP')
+        flash('Invalid file format. Allowed: PNG, JPG, JPEG, GIF, BMP')
         return redirect(url_for('index'))
-
-@app.route('/api/classes')
-def get_classes():
-    """API endpoint zwracajacy dostepne klasy"""
-    return jsonify({
-        'classes': class_names,
-        'model_loaded': model_loaded,
-        'num_classes': len(class_names)
-    })
 
 @app.errorhandler(413)
 def too_large(e):
-    flash('Plik jest za duzy. Maksymalny rozmiar to 16MB.')
+    flash('File is too large. Maximum size is 16MB.')
     return redirect(url_for('index'))
 
 if __name__ == '__main__':
-    print("Uruchamianie aplikacji Anime Face Recognition...")
+    print("Starting Anime Face Recognition application...")
     
-    # Zaladuj model przy starcie
-    print("Ladowanie modelu...")
-    success = load_anime_model()
+    # Load model at startup
+    print("Loading model...")
+    try:
+        success = load_anime_model()
+        
+        if success and model_loaded and model is not None:
+            print(f"SUCCESS: Model loaded successfully! Available classes: {len(class_names)}")
+            for i, name in enumerate(class_names):
+                print(f"  {i+1}. {name}")
+        else:
+            print("WARNING: Model not loaded - prediction will be unavailable")
+    except Exception as e:
+        print(f"ERROR during loading: {e}")
     
-    if success:
-        print(f"Model zaladowany pomyslnie! Dostepne klasy: {len(class_names)}")
-        for i, name in enumerate(class_names):
-            print(f"  {i+1}. {name}")
-    else:
-        print("UWAGA: Nie udalo sie zaladowac modelu. Aplikacja bedzie dzialac w trybie demo.")
-    
-    print("Serwer uruchamia sie na http://0.0.0.0:5000")
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    print("Server starting on http://0.0.0.0:5000")
+    app.run(host='0.0.0.0', port=5000, debug=False)

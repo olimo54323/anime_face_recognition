@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="pl">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wyniki - Anime Face Recognition</title>
+    <title>Results - Anime Face Recognition</title>
     <style>
         * {
             margin: 0;
@@ -201,23 +201,23 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🎯 Wyniki analizy</h1>
+            <h1>🎯 Analysis Results</h1>
         </div>
         
         <div class="results-grid">
             <div class="image-section">
-                <h2>📸 Przesłane zdjęcie</h2>
+                <h2>📸 Uploaded Image</h2>
                 {% if image_base64 %}
                     <img src="data:image/jpeg;base64,{{ image_base64 }}" alt="Uploaded image" class="uploaded-image">
                 {% endif %}
                 <div class="image-info">
-                    <strong>Nazwa pliku:</strong> {{ filename }}<br>
-                    <strong>Status:</strong> Analiza zakończona pomyślnie ✅
+                    <strong>Filename:</strong> {{ filename }}<br>
+                    <strong>Status:</strong> Analysis completed successfully ✅
                 </div>
             </div>
             
             <div class="predictions-section">
-                <h2>🏆 Top 3 Predykcje</h2>
+                <h2>🏆 Top 3 Predictions</h2>
                 
                 {% for prediction in predictions %}
                 <div class="prediction-item rank-{{ prediction.rank }}">
@@ -234,7 +234,7 @@
                         <div class="character-name">{{ prediction.character.replace('_', ' ').title() }}</div>
                     </div>
                     
-                    <div class="confidence">Pewność: {{ prediction.confidence }}%</div>
+                    <div class="confidence">Confidence: {{ prediction.confidence }}%</div>
                     
                     <div class="confidence-bar">
                         <div class="confidence-fill" style="width: {{ prediction.confidence }}%"></div>
@@ -242,7 +242,7 @@
                     
                     {% if prediction.rank == 1 %}
                         <div style="color: #d4af37; font-weight: bold; text-align: center; margin-top: 10px;">
-                            🌟 Najlepsze dopasowanie! 🌟
+                            🌟 Best Match! 🌟
                         </div>
                     {% endif %}
                 </div>
@@ -251,13 +251,13 @@
         </div>
         
         <div class="actions">
-            <a href="{{ url_for('index') }}" class="button">📷 Analizuj kolejne zdjęcie</a>
+            <a href="{{ url_for('index') }}" class="button">📷 Analyze Another Image</a>
         </div>
         
         {% if class_names %}
         <div style="background: #f8f9ff; border-radius: 15px; padding: 25px; margin-top: 30px;">
             <h3 style="text-align: center; color: #333; margin-bottom: 15px;">
-                📋 Wszystkie dostępne postaci ({{ class_names|length }})
+                📋 All Available Characters ({{ class_names|length }})
             </h3>
             <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px;">
                 {% for class_name in class_names %}
@@ -271,7 +271,7 @@
     </div>
     
     <script>
-        // Animacja pasków pewności
+        // Confidence bar animation
         window.addEventListener('load', function() {
             const bars = document.querySelectorAll('.confidence-fill');
             bars.forEach(function(bar) {
