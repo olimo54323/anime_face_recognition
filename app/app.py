@@ -68,8 +68,8 @@ def load_anime_model():
         
         # Zaladuj nazwy klas
         class_names_paths = [
-            os.path.join(model_dir, "anime_face_recognition_model_class_names.pkl"),
-            "anime_face_recognition_model_class_names.pkl"
+            os.path.join(model_dir, "anime_face_recognition_model.pkl"),
+            "anime_face_recognition_model.pkl"
         ]
         
         class_names_loaded = False

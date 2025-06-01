@@ -71,51 +71,25 @@
             border: 1px solid #f5c6cb;
         }
         
-        .upload-area {
+        .upload-section {
             border: 3px dashed #667eea;
             border-radius: 15px;
             padding: 40px;
             text-align: center;
             background: #f8f9ff;
             margin-bottom: 30px;
-            transition: all 0.3s ease;
-            cursor: pointer;
-        }
-        
-        .upload-area:hover {
-            border-color: #764ba2;
-            background: #f0f2ff;
-        }
-        
-        .upload-area.dragover {
-            border-color: #764ba2;
-            background: #e8eaff;
-        }
-        
-        .upload-icon {
-            font-size: 3em;
-            color: #667eea;
-            margin-bottom: 20px;
         }
         
         .file-input {
-            display: none;
+            margin: 20px 0;
         }
         
-        .upload-button {
-            background: linear-gradient(45deg, #667eea, #764ba2);
-            color: white;
-            border: none;
-            padding: 15px 30px;
-            border-radius: 25px;
-            font-size: 1.1em;
-            cursor: pointer;
-            transition: transform 0.3s ease;
-            margin: 10px;
-        }
-        
-        .upload-button:hover {
-            transform: translateY(-2px);
+        .file-input input[type="file"] {
+            padding: 10px;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            background: white;
+            font-size: 16px;
         }
         
         .submit-button {
@@ -139,6 +113,19 @@
             background: #ccc;
             cursor: not-allowed;
             transform: none;
+        }
+        
+        .preview {
+            margin-top: 20px;
+            text-align: center;
+            display: none;
+        }
+        
+        .preview img {
+            max-width: 300px;
+            max-height: 300px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
         }
         
         .classes-section {
@@ -179,30 +166,9 @@
             padding: 15px;
             border-radius: 10px;
             margin-bottom: 10px;
-        }
-        
-        .flash-error {
             background: #f8d7da;
             color: #721c24;
             border: 1px solid #f5c6cb;
-        }
-        
-        .preview {
-            margin-top: 20px;
-            text-align: center;
-        }
-        
-        .preview img {
-            max-width: 300px;
-            max-height: 300px;
-            border-radius: 10px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-        }
-        
-        .file-info {
-            margin-top: 15px;
-            color: #666;
-            font-size: 0.9em;
         }
     </style>
 </head>
@@ -226,29 +192,27 @@
             {% if messages %}
                 <div class="flash-messages">
                     {% for message in messages %}
-                        <div class="flash-message flash-error">{{ message }}</div>
+                        <div class="flash-message">{{ message }}</div>
                     {% endfor %}
                 </div>
             {% endif %}
         {% endwith %}
         
         <form method="post" action="{{ url_for('upload_file') }}" enctype="multipart/form-data" id="uploadForm">
-            <div class="upload-area" id="uploadArea">
-                <div class="upload-icon">📸</div>
+            <div class="upload-section">
+                <div style="font-size: 3em; color: #667eea; margin-bottom: 20px;">📸</div>
                 <h3>Wybierz zdjęcie postaci anime</h3>
-                <p>Przeciągnij plik tutaj lub kliknij aby wybrać</p>
-                <input type="file" name="file" id="fileInput" class="file-input" accept="image/*" required>
-                <button type="button" class="upload-button" onclick="document.getElementById('fileInput').click()">
-                    Wybierz plik
-                </button>
+                <div class="file-input">
+                    <input type="file" name="file" id="fileInput" accept="image/*" required>
+                </div>
             </div>
             
-            <div class="preview" id="preview" style="display: none;">
+            <div class="preview" id="preview">
                 <img id="previewImage" src="" alt="Podgląd">
-                <div class="file-info" id="fileInfo"></div>
+                <div id="fileInfo" style="margin-top: 15px; color: #666; font-size: 0.9em;"></div>
             </div>
             
-            <button type="submit" class="submit-button" id="submitButton" disabled>
+            <button type="submit" class="submit-button" id="submitButton">
                 🔍 Analizuj zdjęcie
             </button>
         </form>
@@ -267,40 +231,12 @@
     
     <script>
         const fileInput = document.getElementById('fileInput');
-        const uploadArea = document.getElementById('uploadArea');
         const preview = document.getElementById('preview');
         const previewImage = document.getElementById('previewImage');
         const fileInfo = document.getElementById('fileInfo');
         const submitButton = document.getElementById('submitButton');
         
-        // Drag and drop functionality
-        uploadArea.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            uploadArea.classList.add('dragover');
-        });
-        
-        uploadArea.addEventListener('dragleave', () => {
-            uploadArea.classList.remove('dragover');
-        });
-        
-        uploadArea.addEventListener('drop', (e) => {
-            e.preventDefault();
-            uploadArea.classList.remove('dragover');
-            
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                fileInput.files = files;
-                handleFileSelect();
-            }
-        });
-        
-        uploadArea.addEventListener('click', () => {
-            fileInput.click();
-        });
-        
-        fileInput.addEventListener('change', handleFileSelect);
-        
-        function handleFileSelect() {
+        fileInput.addEventListener('change', function() {
             const file = fileInput.files[0];
             if (file) {
                 // Sprawdź typ pliku
@@ -317,7 +253,7 @@
                 
                 // Pokaż podgląd
                 const reader = new FileReader();
-                reader.onload = (e) => {
+                reader.onload = function(e) {
                     previewImage.src = e.target.result;
                     preview.style.display = 'block';
                     
@@ -328,15 +264,13 @@
                         Rozmiar: ${sizeKB} KB<br>
                         Typ: ${file.type}
                     `;
-                    
-                    submitButton.disabled = false;
                 };
                 reader.readAsDataURL(file);
             }
-        }
+        });
         
         // Loading animation on submit
-        document.getElementById('uploadForm').addEventListener('submit', () => {
+        document.getElementById('uploadForm').addEventListener('submit', function() {
             submitButton.innerHTML = '⏳ Analizuję...';
             submitButton.disabled = true;
         });

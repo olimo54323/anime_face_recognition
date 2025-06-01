@@ -252,7 +252,6 @@
         
         <div class="actions">
             <a href="{{ url_for('index') }}" class="button">📷 Analizuj kolejne zdjęcie</a>
-            <button onclick="downloadResults()" class="button">💾 Pobierz wyniki</button>
         </div>
         
         {% if class_names %}
@@ -273,40 +272,16 @@
     
     <script>
         // Animacja pasków pewności
-        window.addEventListener('load', () => {
+        window.addEventListener('load', function() {
             const bars = document.querySelectorAll('.confidence-fill');
-            bars.forEach(bar => {
+            bars.forEach(function(bar) {
                 const width = bar.style.width;
                 bar.style.width = '0%';
-                setTimeout(() => {
+                setTimeout(function() {
                     bar.style.width = width;
                 }, 500);
             });
         });
-        
-        function downloadResults() {
-            const results = {
-                filename: '{{ filename }}',
-                predictions: [
-                    {% for prediction in predictions %}
-                    {
-                        rank: {{ prediction.rank }},
-                        character: '{{ prediction.character }}',
-                        confidence: {{ prediction.confidence }}
-                    }{% if not loop.last %},{% endif %}
-                    {% endfor %}
-                ],
-                timestamp: new Date().toISOString()
-            };
-            
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(results, null, 2));
-            const downloadAnchorNode = document.createElement('a');
-            downloadAnchorNode.setAttribute("href", dataStr);
-            downloadAnchorNode.setAttribute("download", "anime_recognition_results.json");
-            document.body.appendChild(downloadAnchorNode);
-            downloadAnchorNode.click();
-            downloadAnchorNode.remove();
-        }
     </script>
 </body>
 </html>

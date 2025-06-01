@@ -31,25 +31,17 @@ cd anime-face-recognition
 # Building Docker image
 docker build -t anime-face-recognition .
 
-# open docker in interactive mode
-docker run -it -p 5000:5000 --rm anime-face-recognition bash
-```
-- run command for image preprocess:
-```bash
-python scripts/preprocessing.py
-```
-- run command for checking model:
-```bash
-python scripts/model_diagnostic.py
+# run docker container
+docker run -d --name anime-app -p 5000:5000 anime-face-recognition
+
+# (diagnostic) check logs
+docker logs anime-app
 ```
 
-- run the flask app:
-```bash
-export FLASK_APP=app/app.py
-export FLASK_DEBUG=1
-export PYTHONUNBUFFERED=1
-flask run --host=0.0.0.0 --port=5000
-```
+open:
+
+http://localhost:5000
+
 
 ## First model (small number of classes: 5) conclusion:
 ![training plots](img/training_plots.png)
